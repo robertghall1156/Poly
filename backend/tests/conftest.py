@@ -19,7 +19,8 @@ FIXTURES = Path(__file__).parent / "fixtures"
 def data_dir(tmp_path_factory) -> Path:
     d = tmp_path_factory.mktemp("polydata")
     os.environ["POLY_DATA_DIR"] = str(d)
-    os.environ["POLY_DATABASE_URL"] = f"sqlite:///{d / 'test.db'}"
+    # Set POLY_TEST_DATABASE_URL=postgresql+psycopg://poly:poly@localhost:5432/poly to run the suite on Postgres+pgvector
+    os.environ["POLY_DATABASE_URL"] = os.environ.get("POLY_TEST_DATABASE_URL") or f"sqlite:///{d / 'test.db'}"
     from poly.config import reset_settings_cache
 
     reset_settings_cache()
@@ -31,6 +32,12 @@ def engine(data_dir):
     from poly.db import configure_engine, init_db
 
     eng = configure_engine(os.environ["POLY_DATABASE_URL"])
+    if eng.dialect.name == "postgresql":  # fresh schema for each run
+        from poly.models import Base
+        from sqlalchemy import text
+        with eng.begin() as conn:
+            conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
+        Base.metadata.drop_all(eng)
     init_db(eng)
     return eng
 
