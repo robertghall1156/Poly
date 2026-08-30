@@ -86,6 +86,13 @@ def classify_tasks(info: ModelInfo) -> list[str]:
     return tasks
 
 
+def task_score(row: "LocalModel", task: str) -> int:
+    """Secondary ordering within the same user priority. Lower = tried first.
+    Prefer small models for FAST, large (and reasoning-tuned) models for REASONING/WRITING."""
+    info = ModelInfo(name=row.name, runtime=row.runtime, endpoint=row.endpoint, size_bytes=row.size_bytes, capabilities=row.capabilities or {})
+    return _priority_for(info, task)
+
+
 def _priority_for(info: ModelInfo, task: str) -> int:
     """Lower = tried first. Prefer small models for FAST, large for REASONING/WRITING."""
     b = _param_billions(info) or 7.0
@@ -179,7 +186,7 @@ def detect_and_register(db: Session) -> dict[str, Any]:
                     runtime=rt.runtime,
                     endpoint=rt.endpoint,
                     tasks=tasks,
-                    priority=min(_priority_for(m, t) for t in tasks) if tasks else 100,
+                    priority=100,  # user-adjustable; per-task ordering comes from task_score()
                     enabled=True,
                 )
                 db.add(row)
@@ -234,13 +241,26 @@ def recommend_assignments(db: Session) -> dict[str, str | None]:
 # ---------------------------------------------------------------------------
 # Router
 # ---------------------------------------------------------------------------
+TASK_FALLBACKS = {"FAST": ["WRITING", "REASONING"], "WRITING": ["REASONING", "FAST"], "REASONING": ["WRITING", "FAST"]}
+
+
 def candidates(db: Session, task: str, *, include_cloud: bool = False) -> list[LocalModel]:
+    """Enabled, detected models assigned to `task`, best first. If nothing is assigned to a chat
+    task, neighbouring chat categories are used so a single installed model still serves everything."""
     rows = db.execute(
         select(LocalModel).where(LocalModel.enabled.is_(True), LocalModel.detected.is_(True))
     ).scalars().all()
-    rows = [r for r in rows if task in (r.tasks or []) and (include_cloud or r.locality == "local")]
-    rows.sort(key=lambda r: (r.priority, -(r.size_bytes or 0)))
-    return rows
+    rows = [r for r in rows if include_cloud or r.locality == "local"]
+    primary = [r for r in rows if task in (r.tasks or [])]
+    primary.sort(key=lambda r: (r.priority, task_score(r, task), -(r.size_bytes or 0)))
+    if primary:
+        return primary
+    for alt in TASK_FALLBACKS.get(task, []):
+        alt_rows = [r for r in rows if alt in (r.tasks or [])]
+        if alt_rows:
+            alt_rows.sort(key=lambda r: (r.priority, task_score(r, task), -(r.size_bytes or 0)))
+            return alt_rows
+    return []
 
 
 def build_provider(row: LocalModel) -> LLMProvider | EmbeddingProvider | TranscriptionProvider:
