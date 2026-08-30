@@ -40,6 +40,27 @@ def new_id() -> str:
     return uuid.uuid4().hex
 
 
+class UTCDateTime(TypeDecorator):
+    """Timezone-aware UTC datetimes on every backend (SQLite drops tzinfo otherwise)."""
+
+    impl = DateTime(timezone=True)
+    cache_ok = True
+
+    def process_bind_param(self, value, dialect):
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+    def process_result_value(self, value, dialect):
+        if value is None:
+            return None
+        if value.tzinfo is None:
+            return value.replace(tzinfo=timezone.utc)
+        return value.astimezone(timezone.utc)
+
+
 class VectorType(TypeDecorator):
     """pgvector on PostgreSQL, packed float32 blob elsewhere."""
 
@@ -85,9 +106,9 @@ class Base(DeclarativeBase):
 
 
 class TimestampMixin:
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, nullable=False)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, nullable=False)
     updated_at: Mapped[datetime] = mapped_column(
-        DateTime(timezone=True), default=utcnow, onupdate=utcnow, nullable=False
+        UTCDateTime(), default=utcnow, onupdate=utcnow, nullable=False
     )
 
 
@@ -130,7 +151,7 @@ class PrincipleRevision(Base):
     old_status: Mapped[str | None] = mapped_column(String(20))
     new_status: Mapped[str | None] = mapped_column(String(20))
     reason_for_change: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
     principle: Mapped[Principle] = relationship(back_populates="revisions")
 
@@ -144,11 +165,11 @@ class SupportingEvidence(Base):
     source_type: Mapped[str] = mapped_column(String(50), default="secondary")
     summary: Mapped[str] = mapped_column(Text, default="")
     url: Mapped[str] = mapped_column(String(2000), default="")
-    publication_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    publication_date: Mapped[datetime | None] = mapped_column(UTCDateTime())
     reliability: Mapped[str] = mapped_column(String(50), default="unknown")
     notes: Mapped[str] = mapped_column(Text, default="")
     article_id: Mapped[str | None] = mapped_column(ForeignKey("articles.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
     principle: Mapped[Principle] = relationship(back_populates="evidence")
 
@@ -163,7 +184,7 @@ class Counterargument(Base):
     strength: Mapped[str] = mapped_column(String(20), default="moderate")
     response: Mapped[str] = mapped_column(Text, default="")
     unresolved_questions: Mapped[list[Any]] = mapped_column(JSON, default=list)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
     principle: Mapped[Principle] = relationship(back_populates="counterarguments")
 
@@ -207,7 +228,7 @@ class Feed(Base):
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     category: Mapped[str] = mapped_column(String(60), default="general")
     source_id: Mapped[str | None] = mapped_column(ForeignKey("sources.id", ondelete="SET NULL"))
-    last_fetched_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_fetched_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     last_error: Mapped[str | None] = mapped_column(Text)
     fetch_count: Mapped[int] = mapped_column(Integer, default=0)
     __table_args__ = (UniqueConstraint("url", "query", name="uq_feed_url_query"),)
@@ -227,8 +248,8 @@ class Article(Base):
     source_id: Mapped[str | None] = mapped_column(ForeignKey("sources.id", ondelete="SET NULL"))
     feed_id: Mapped[str | None] = mapped_column(ForeignKey("feeds.id", ondelete="SET NULL"))
     story_id: Mapped[str | None] = mapped_column(ForeignKey("stories.id", ondelete="SET NULL"), index=True)
-    published_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
-    fetched_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    published_at: Mapped[datetime | None] = mapped_column(UTCDateTime(), index=True)
+    fetched_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
     summary: Mapped[str] = mapped_column(Text, default="")
     content: Mapped[str] = mapped_column(Text, default="")
     content_hash: Mapped[str] = mapped_column(String(64), index=True, default="")
@@ -249,8 +270,8 @@ class Story(Base):
     slug: Mapped[str] = mapped_column(String(200), index=True, default="")
     summary: Mapped[str] = mapped_column(Text, default="")
     status: Mapped[str] = mapped_column(String(20), default="new", index=True)
-    first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    last_updated: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
+    first_seen: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)
+    last_updated: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)
     topics: Mapped[list[Any]] = mapped_column(JSON, default=list)
     relevance_score: Mapped[float] = mapped_column(Float, default=0.0, index=True)
     why_it_matters: Mapped[str] = mapped_column(Text, default="")
@@ -263,7 +284,7 @@ class Story(Base):
     dashboard_action: Mapped[str] = mapped_column(String(30), default="none", index=True)
     analysis_version: Mapped[int] = mapped_column(Integer, default=0)
     analysis_source: Mapped[str] = mapped_column(String(40), default="none")  # none | heuristic | llm:<model>
-    analyzed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    analyzed_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     keywords: Mapped[list[Any]] = mapped_column(JSON, default=list)
 
     articles: Mapped[list[Article]] = relationship(back_populates="story", foreign_keys=[Article.story_id])
@@ -282,7 +303,7 @@ class StoryEvent(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     story_id: Mapped[str] = mapped_column(ForeignKey("stories.id", ondelete="CASCADE"), index=True)
     article_id: Mapped[str | None] = mapped_column(ForeignKey("articles.id", ondelete="SET NULL"))
-    occurred_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    occurred_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
     kind: Mapped[str] = mapped_column(String(30), default="article")  # article | analysis | user
     description: Mapped[str] = mapped_column(Text, default="")
 
@@ -304,7 +325,7 @@ class Claim(Base):
     primary_source_url: Mapped[str] = mapped_column(String(2000), default="")
     verification_status: Mapped[str] = mapped_column(String(30), default="UNVERIFIED")
     notes: Mapped[str] = mapped_column(Text, default="")
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
     story: Mapped[Story] = relationship(back_populates="claims")
 
@@ -363,8 +384,8 @@ class PositionBrief(Base):
     confidence: Mapped[float] = mapped_column(Float, default=0.5)
     status: Mapped[str] = mapped_column(String(20), default="draft", index=True)
     approved_principle_id: Mapped[str | None] = mapped_column(ForeignKey("principles.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
-    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
+    approved_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
 
     session: Mapped[ThinkSession | None] = relationship(back_populates="briefs")
 
@@ -398,12 +419,12 @@ class ContentItem(TimestampMixin, Base):
     clip_id: Mapped[str | None] = mapped_column(ForeignKey("clips.id", ondelete="SET NULL"))
     parent_id: Mapped[str | None] = mapped_column(ForeignKey("content_items.id", ondelete="SET NULL"), index=True)
     platform: Mapped[str] = mapped_column(String(40), default="")
-    publish_date: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), index=True)
+    publish_date: Mapped[datetime | None] = mapped_column(UTCDateTime(), index=True)
     url: Mapped[str] = mapped_column(String(2000), default="")
     fact_check_status: Mapped[str] = mapped_column(String(30), default="not_run")
     fact_check_override_reason: Mapped[str] = mapped_column(Text, default="")
     substantive_value: Mapped[float | None] = mapped_column(Float)
-    approved_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    approved_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     generation_meta: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
 
     children: Mapped[list[ContentItem]] = relationship(
@@ -428,7 +449,7 @@ class FactCheckClaim(Base):
     sources: Mapped[list[Any]] = mapped_column(JSON, default=list)
     notes: Mapped[str] = mapped_column(Text, default="")
     resolved: Mapped[bool] = mapped_column(Boolean, default=False)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
     content_item: Mapped[ContentItem] = relationship(back_populates="fact_check_claims")
 
@@ -439,7 +460,7 @@ class ContentMetric(Base):
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     content_item_id: Mapped[str] = mapped_column(ForeignKey("content_items.id", ondelete="CASCADE"), index=True)
     platform: Mapped[str] = mapped_column(String(40), default="")
-    recorded_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    recorded_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
     views: Mapped[int] = mapped_column(Integer, default=0)
     watch_time_seconds: Mapped[float] = mapped_column(Float, default=0.0)
     retention_pct: Mapped[float | None] = mapped_column(Float)
@@ -469,7 +490,7 @@ class Image(Base):
     label: Mapped[str] = mapped_column(String(30), default="chart")
     approved: Mapped[bool] = mapped_column(Boolean, default=False)
     content_item_id: Mapped[str | None] = mapped_column(ForeignKey("content_items.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
 
 # ---------------------------------------------------------------------------
@@ -534,9 +555,9 @@ class VideoFolder(Base):
     path: Mapped[str] = mapped_column(String(2000), unique=True, nullable=False)
     enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     recursive: Mapped[bool] = mapped_column(Boolean, default=True)
-    last_scanned_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_scanned_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     file_count: Mapped[int] = mapped_column(Integer, default=0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
     videos: Mapped[list[Video]] = relationship(back_populates="folder", cascade="all, delete-orphan")
 
@@ -555,9 +576,9 @@ class Video(Base):
     fps: Mapped[float] = mapped_column(Float, default=0.0)
     codec: Mapped[str] = mapped_column(String(50), default="")
     has_audio: Mapped[bool] = mapped_column(Boolean, default=True)
-    file_created_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    file_modified_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    indexed_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    file_created_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    file_modified_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    indexed_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
     transcript_status: Mapped[str] = mapped_column(String(20), default="none", index=True)
     transcript_provider: Mapped[str] = mapped_column(String(60), default="")
     transcript_language: Mapped[str] = mapped_column(String(10), default="")
@@ -609,7 +630,7 @@ class Clip(Base):
     render_error: Mapped[str | None] = mapped_column(Text)
     transcript_text: Mapped[str] = mapped_column(Text, default="")
     story_id: Mapped[str | None] = mapped_column(ForeignKey("stories.id", ondelete="SET NULL"))
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
 
     video: Mapped[Video] = relationship(back_populates="clips")
 
@@ -622,7 +643,7 @@ class Setting(Base):
 
     key: Mapped[str] = mapped_column(String(120), primary_key=True)
     value: Mapped[Any] = mapped_column(JSON, default=dict)
-    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, onupdate=utcnow)
+    updated_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, onupdate=utcnow)
 
 
 TASK_CATEGORIES = ["FAST", "REASONING", "WRITING", "EMBEDDING", "VISION", "TRANSCRIPTION", "IMAGE"]
@@ -642,7 +663,7 @@ class LocalModel(Base):
     fallback_model_id: Mapped[str | None] = mapped_column(ForeignKey("local_models.id", ondelete="SET NULL"))
     size_bytes: Mapped[int | None] = mapped_column(Integer)
     capabilities: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
-    last_ok_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_ok_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     last_latency_ms: Mapped[float | None] = mapped_column(Float)
     last_error: Mapped[str | None] = mapped_column(Text)
     detected: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -660,7 +681,7 @@ class Embedding(Base):
     text: Mapped[str] = mapped_column(Text, default="")
     model: Mapped[str] = mapped_column(String(200), default="")
     vector: Mapped[list[float] | None] = mapped_column(VectorType)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow)
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow)
     __table_args__ = (
         UniqueConstraint("entity_type", "entity_id", "chunk_index", name="uq_embedding_chunk"),
         Index("ix_embeddings_entity", "entity_type", "entity_id"),
@@ -680,6 +701,6 @@ class Job(Base):
     retryable: Mapped[bool] = mapped_column(Boolean, default=True)
     cloud_override_allowed: Mapped[bool] = mapped_column(Boolean, default=False)
     progress: Mapped[float] = mapped_column(Float, default=0.0)
-    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utcnow, index=True)
-    started_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    finished_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)
+    started_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+    finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
