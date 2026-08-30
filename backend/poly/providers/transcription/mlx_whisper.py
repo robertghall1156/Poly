@@ -3,7 +3,14 @@ from __future__ import annotations
 
 import importlib.util
 
-from ..base import ModelInfo, ProviderError, TranscriptionProvider, TranscriptResult, TranscriptSegmentResult, TranscriptWord
+from ..base import (
+    ModelInfo,
+    ProviderError,
+    TranscriptionProvider,
+    TranscriptResult,
+    TranscriptSegmentResult,
+    TranscriptWord,
+)
 
 
 class MLXWhisperProvider(TranscriptionProvider):

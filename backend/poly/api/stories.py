@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -10,7 +10,18 @@ from sqlalchemy.orm import Session
 
 from ..db import get_db
 from ..jobs.tasks import enqueue
-from ..models import Article, BookNote, Claim, ContentItem, Feed, ResearchNote, Source, Story, StoryEvent, ThinkSession
+from ..models import (
+    Article,
+    BookNote,
+    Claim,
+    ContentItem,
+    Feed,
+    ResearchNote,
+    Source,
+    Story,
+    StoryEvent,
+    ThinkSession,
+)
 from ..services import settings as settings_service
 from ..services.clustering import merge_stories
 from ..services.ingest import ensure_default_feeds
@@ -34,7 +45,7 @@ def _story_summary(s: Story) -> dict[str, Any]:
 
 @router.get("/stories")
 def list_stories(status: str | None = None, topic: str | None = None, days: int = 14, min_relevance: float = 0.0, action: str | None = None, limit: int = 100, db: Session = Depends(get_db)) -> list[dict[str, Any]]:
-    since = datetime.now(timezone.utc) - timedelta(days=days)
+    since = datetime.now(UTC) - timedelta(days=days)
     q = select(Story).where(Story.last_updated >= since)
     if status:
         q = q.where(Story.status == status)

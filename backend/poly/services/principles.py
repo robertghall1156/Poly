@@ -3,7 +3,7 @@ and the two-way bridge to `knowledge/political_operating_system.md`."""
 from __future__ import annotations
 
 import re
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -69,7 +69,7 @@ def to_markdown(principles: list[Principle]) -> str:
         "# Political Operating System",
         "",
         "Exported by Poly. Each `##` heading is a category; each `###` heading is a principle.",
-        f"Generated {datetime.now(timezone.utc).isoformat(timespec='seconds')}.",
+        f"Generated {datetime.now(UTC).isoformat(timespec='seconds')}.",
         "",
         "---",
         "",

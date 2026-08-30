@@ -43,9 +43,8 @@ def main(argv: list[str] | None = None) -> int:
     if args.cmd == "worker":
         from huey.consumer_options import ConsumerConfig
 
-        from .jobs.tasks import huey  # noqa: F401 - registers tasks
-
         from .db import init_db
+        from .jobs.tasks import huey  # noqa: F401 - registers tasks
 
         init_db()
         config = ConsumerConfig(workers=2, worker_type="thread", periodic=True)

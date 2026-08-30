@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 from contextlib import asynccontextmanager
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
@@ -36,7 +36,7 @@ def startup_tasks() -> dict:
         try:
             det = detect_and_register(db)
             settings_service.set(db, "detected_runtimes", det["runtimes"])
-            settings_service.set(db, "last_detection", datetime.now(timezone.utc).isoformat())
+            settings_service.set(db, "last_detection", datetime.now(UTC).isoformat())
             summary["runtimes"] = det["runtimes"]
             summary["assignments"] = det["assignments"]
         except Exception as e:  # detection must never block startup

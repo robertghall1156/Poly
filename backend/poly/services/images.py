@@ -3,7 +3,7 @@ plus the optional local generative provider. No cloud calls."""
 from __future__ import annotations
 
 import textwrap
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -73,7 +73,7 @@ def _fit_font(draw, text, max_width, max_height, start=72, minimum=24):
 
 
 def _out(kind: str) -> Path:
-    stamp = datetime.now(timezone.utc).strftime("%Y%m%d-%H%M%S-%f")
+    stamp = datetime.now(UTC).strftime("%Y%m%d-%H%M%S-%f")
     return get_settings().images_path / f"{kind}-{stamp}.png"
 
 

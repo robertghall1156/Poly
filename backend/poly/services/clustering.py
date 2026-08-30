@@ -10,7 +10,7 @@ from __future__ import annotations
 import math
 import re
 from collections import Counter
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -99,7 +99,7 @@ def assign_story(db: Session, article: Article, *, threshold: float = JOIN_THRES
     from .ingest import touch_story
 
     text = f"{article.title}. {article.summary}"
-    since = datetime.now(timezone.utc) - timedelta(days=CLUSTER_WINDOW_DAYS)
+    since = datetime.now(UTC) - timedelta(days=CLUSTER_WINDOW_DAYS)
     recent = db.execute(select(Story).where(Story.last_updated >= since, Story.status != "ignored")).scalars().all()
     best, best_sim = None, 0.0
     for story in recent:

@@ -2,7 +2,7 @@ from __future__ import annotations
 
 import csv
 import io
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from dateutil import parser as dateparser
@@ -233,7 +233,7 @@ class MetricIn(BaseModel):
 def add_metric(cid: str, body: MetricIn, db: Session = Depends(get_db)) -> dict[str, Any]:
     c = get_or_404(db, ContentItem, cid)
     data = body.model_dump()
-    data["recorded_at"] = dateparser.parse(data["recorded_at"]) if data.get("recorded_at") else datetime.now(timezone.utc)
+    data["recorded_at"] = dateparser.parse(data["recorded_at"]) if data.get("recorded_at") else datetime.now(UTC)
     m = ContentMetric(content_item_id=c.id, source="manual", **data)
     db.add(m)
     db.commit()
@@ -256,14 +256,14 @@ async def import_csv(file: UploadFile, db: Session = Depends(get_db)) -> dict[st
             skipped += 1
             continue
 
-        def num(k, cast=int, default=0):
+        def num(k, cast=int, default=0, row=row):
             v = row.get(k)
             try:
                 return cast(v) if v not in (None, "") else default
             except ValueError:
                 return default
 
-        m = ContentMetric(content_item_id=item.id, platform=row.get("platform", ""), recorded_at=dateparser.parse(row["recorded_at"]) if row.get("recorded_at") else datetime.now(timezone.utc), views=num("views"), watch_time_seconds=num("watch_time_seconds", float, 0.0), retention_pct=num("retention_pct", float, None), likes=num("likes"), comments=num("comments"), shares=num("shares"), subscribers_gained=num("subscribers_gained"), completion_pct=num("completion_pct", float, None), source="csv")
+        m = ContentMetric(content_item_id=item.id, platform=row.get("platform", ""), recorded_at=dateparser.parse(row["recorded_at"]) if row.get("recorded_at") else datetime.now(UTC), views=num("views"), watch_time_seconds=num("watch_time_seconds", float, 0.0), retention_pct=num("retention_pct", float, None), likes=num("likes"), comments=num("comments"), shares=num("shares"), subscribers_gained=num("subscribers_gained"), completion_pct=num("completion_pct", float, None), source="csv")
         db.add(m)
         n += 1
     db.commit()

@@ -7,7 +7,7 @@ from __future__ import annotations
 import hashlib
 import logging
 import re
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
@@ -98,7 +98,7 @@ def normalize(raw: RawArticle) -> dict[str, Any]:
     content = (raw.content or "").strip()
     published = raw.published_at
     if published and published.tzinfo is None:
-        published = published.replace(tzinfo=timezone.utc)
+        published = published.replace(tzinfo=UTC)
     return {
         "url": url,
         "canonical_url": canonical,
@@ -126,7 +126,7 @@ def find_duplicate(db: Session, norm: dict[str, Any], *, recent: list[Article] |
         row = db.execute(select(Article).where(Article.content_hash == norm["content_hash"]).limit(1)).scalar_one_or_none()
         if row is not None:
             return row
-    pool = recent if recent is not None else db.execute(select(Article).where(Article.fetched_at > datetime.now(timezone.utc) - timedelta(days=7))).scalars().all()
+    pool = recent if recent is not None else db.execute(select(Article).where(Article.fetched_at > datetime.now(UTC) - timedelta(days=7))).scalars().all()
     for a in pool:
         if a.title_simhash and hamming(a.title_simhash, norm["title_simhash"]) <= title_bits and normalize_title(a.title).lower()[:20] == norm["title"].lower()[:20]:
             return a
@@ -179,8 +179,8 @@ def ingest_raw_articles(db: Session, raws: list[RawArticle], *, lookback_days: i
     from .clustering import assign_story
 
     stats = {"seen": len(raws), "inserted": 0, "duplicates": 0, "old": 0}
-    cutoff = datetime.now(timezone.utc) - timedelta(days=lookback_days)
-    recent = db.execute(select(Article).where(Article.fetched_at > datetime.now(timezone.utc) - timedelta(days=7))).scalars().all()
+    cutoff = datetime.now(UTC) - timedelta(days=lookback_days)
+    recent = db.execute(select(Article).where(Article.fetched_at > datetime.now(UTC) - timedelta(days=7))).scalars().all()
     for raw in raws:
         if not raw.url or not raw.title:
             continue
@@ -228,7 +228,7 @@ def run_ingest(db: Session, *, feed_ids: list[str] | None = None, analyze: bool 
             raws = fetch_feed(db, feed, limit=limit)
             feed.last_error = None
             feed.fetch_count = (feed.fetch_count or 0) + 1
-            feed.last_fetched_at = datetime.now(timezone.utc)
+            feed.last_fetched_at = datetime.now(UTC)
             totals["feeds_ok"] += 1
         except ProviderError as e:
             feed.last_error = str(e)[:500]
@@ -246,7 +246,7 @@ def run_ingest(db: Session, *, feed_ids: list[str] | None = None, analyze: bool 
         if progress:
             progress(0.9, "Analysing stories")
         totals["analyzed"] = analyze_pending_stories(db, progress=progress)
-    settings_service.set(db, "last_ingest", {"at": datetime.now(timezone.utc).isoformat(), **{k: v for k, v in totals.items() if k != "errors"}, "error_count": len(totals["errors"])})
+    settings_service.set(db, "last_ingest", {"at": datetime.now(UTC).isoformat(), **{k: v for k, v in totals.items() if k != "errors"}, "error_count": len(totals["errors"])})
     return totals
 
 

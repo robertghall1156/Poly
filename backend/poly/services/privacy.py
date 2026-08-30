@@ -29,7 +29,7 @@ class NetworkPolicy:
     allow_cloud_ai: bool = False
 
     @classmethod
-    def load(cls, db: Session) -> "NetworkPolicy":
+    def load(cls, db: Session) -> NetworkPolicy:
         cfg = get_settings()
         stored = settings_service.get(db, PRIVACY_KEY, None) or {}
         return cls(

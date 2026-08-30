@@ -11,8 +11,7 @@ Two layers:
 from __future__ import annotations
 
 import logging
-from datetime import datetime, timezone
-from typing import Any
+from datetime import UTC, datetime
 
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -220,7 +219,7 @@ def analyze_story(db: Session, story: Story, *, router: Router | None = None, us
     if use_llm:
         used_llm = llm_analysis(db, story, router)
     story.analysis_version = (story.analysis_version or 0) + 1
-    story.analyzed_at = datetime.now(timezone.utc)
+    story.analyzed_at = datetime.now(UTC)
     if story.status == "new":
         story.status = "developing"
     db.add(StoryEvent(story_id=story.id, occurred_at=story.analyzed_at, kind="analysis", description=f"Analysed ({'local model' if used_llm else 'heuristic'}); relevance {story.relevance_score:.2f}"))

@@ -13,7 +13,7 @@ import re
 import shutil
 import time
 from dataclasses import dataclass
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -86,7 +86,7 @@ def classify_tasks(info: ModelInfo) -> list[str]:
     return tasks
 
 
-def task_score(row: "LocalModel", task: str) -> int:
+def task_score(row: LocalModel, task: str) -> int:
     """Secondary ordering within the same user priority. Lower = tried first.
     Prefer small models for FAST, large (and reasoning-tuned) models for REASONING/WRITING."""
     info = ModelInfo(name=row.name, runtime=row.runtime, endpoint=row.endpoint, size_bytes=row.size_bytes, capabilities=row.capabilities or {})
@@ -117,7 +117,7 @@ class DetectedRuntime:
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 # ---------------------------------------------------------------------------

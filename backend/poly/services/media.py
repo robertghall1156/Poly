@@ -13,7 +13,7 @@ import re
 import shutil
 import subprocess
 import tempfile
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 
@@ -113,7 +113,7 @@ def scan_folder(db: Session, folder: VideoFolder, *, progress=None) -> dict[str,
         except RuntimeError as e:
             log.warning("probe failed for %s: %s", f, e)
             continue
-        created = datetime.fromtimestamp(getattr(st, "st_birthtime", st.st_ctime), tz=timezone.utc)
+        created = datetime.fromtimestamp(getattr(st, "st_birthtime", st.st_ctime), tz=UTC)
         if row is None:
             row = Video(folder_id=folder.id, path=str(f), filename=f.name)
             db.add(row)
@@ -125,15 +125,15 @@ def scan_folder(db: Session, folder: VideoFolder, *, progress=None) -> dict[str,
         row.duration = meta["duration"]
         row.width, row.height, row.fps, row.codec, row.has_audio = meta["width"], meta["height"], meta["fps"], meta["codec"], meta["has_audio"]
         row.file_created_at = created
-        row.file_modified_at = datetime.fromtimestamp(st.st_mtime, tz=timezone.utc)
-        row.indexed_at = datetime.now(timezone.utc)
+        row.file_modified_at = datetime.fromtimestamp(st.st_mtime, tz=UTC)
+        row.indexed_at = datetime.now(UTC)
         row.fingerprint = _fingerprint(f, st.st_size)
         row.missing = False
     for path, row in existing.items():
         if path not in seen:
             row.missing = True
             stats["missing"] += 1
-    folder.last_scanned_at = datetime.now(timezone.utc)
+    folder.last_scanned_at = datetime.now(UTC)
     folder.file_count = len(files)
     db.commit()
     db.refresh(folder)

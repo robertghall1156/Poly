@@ -7,7 +7,14 @@ import shutil
 import subprocess
 import tempfile
 
-from ..base import ModelInfo, ProviderError, TranscriptionProvider, TranscriptResult, TranscriptSegmentResult, TranscriptWord
+from ..base import (
+    ModelInfo,
+    ProviderError,
+    TranscriptionProvider,
+    TranscriptResult,
+    TranscriptSegmentResult,
+    TranscriptWord,
+)
 
 
 class WhisperCppProvider(TranscriptionProvider):

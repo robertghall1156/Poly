@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import json
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -62,7 +62,7 @@ argument), chapter_fit (suggested chapter theme), personal_story_prompt (a quest
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _material(db: Session, *, story: Story | None, brief: PositionBrief | None, principles: list[Principle], parent: ContentItem | None) -> str:

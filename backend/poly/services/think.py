@@ -1,7 +1,7 @@
 """Think Mode: an interview that helps develop a position before any content is written."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from typing import Any
 
 from sqlalchemy import select
@@ -39,7 +39,7 @@ confidence (0-1)."""
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def _context(db: Session, session: ThinkSession, router: Router) -> tuple[str, list[Principle]]:

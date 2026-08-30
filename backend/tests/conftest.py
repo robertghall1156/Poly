@@ -33,8 +33,9 @@ def engine(data_dir):
 
     eng = configure_engine(os.environ["POLY_DATABASE_URL"])
     if eng.dialect.name == "postgresql":  # fresh schema for each run
-        from poly.models import Base
         from sqlalchemy import text
+
+        from poly.models import Base
         with eng.begin() as conn:
             conn.execute(text("CREATE EXTENSION IF NOT EXISTS vector"))
         Base.metadata.drop_all(eng)

@@ -5,7 +5,7 @@ the default and always works.
 """
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 import httpx
 from dateutil import parser as dateparser
@@ -19,7 +19,7 @@ def _dt(s: str | None) -> datetime | None:
         return None
     try:
         d = dateparser.parse(s)
-        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+        return d if d.tzinfo else d.replace(tzinfo=UTC)
     except (ValueError, TypeError):
         return None
 

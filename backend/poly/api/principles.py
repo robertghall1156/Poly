@@ -8,7 +8,15 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..db import get_db
-from ..models import ContentItem, Counterargument, PositionBrief, Principle, PrincipleRevision, StoryPrincipleLink, SupportingEvidence
+from ..models import (
+    ContentItem,
+    Counterargument,
+    PositionBrief,
+    Principle,
+    PrincipleRevision,
+    StoryPrincipleLink,
+    SupportingEvidence,
+)
 from ..services import principles as svc
 from ..services.search import embed_entity
 from .common import d, dl, get_or_404

@@ -5,8 +5,9 @@ from __future__ import annotations
 
 import logging
 import traceback
-from datetime import datetime, timezone
-from typing import Any, Callable
+from collections.abc import Callable
+from datetime import UTC, datetime
+from typing import Any
 
 from huey import crontab
 
@@ -20,7 +21,7 @@ log = logging.getLogger(__name__)
 
 
 def _now() -> datetime:
-    return datetime.now(timezone.utc)
+    return datetime.now(UTC)
 
 
 def create_job(db, kind: str, payload: dict[str, Any] | None = None) -> Job:

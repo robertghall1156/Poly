@@ -2,7 +2,7 @@
 from __future__ import annotations
 
 import platform
-from datetime import datetime, timedelta, timezone
+from datetime import UTC, datetime, timedelta
 from typing import Any
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -14,7 +14,19 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..db import get_db, has_pgvector
 from ..jobs.tasks import enqueue, retry_job
-from ..models import TASK_CATEGORIES, Clip, ContentItem, Image, Job, LocalModel, PositionBrief, Principle, Story, ThinkSession, Video
+from ..models import (
+    TASK_CATEGORIES,
+    Clip,
+    ContentItem,
+    Image,
+    Job,
+    LocalModel,
+    PositionBrief,
+    Principle,
+    Story,
+    ThinkSession,
+    Video,
+)
 from ..providers import registry
 from ..providers.base import ProviderError
 from ..providers.transcription.detect import is_apple_silicon, recommended_install
@@ -111,7 +123,7 @@ def local_ai(db: Session = Depends(get_db)) -> dict[str, Any]:
 def refresh_models(db: Session = Depends(get_db)) -> dict[str, Any]:
     res = registry.detect_and_register(db)
     settings_service.set(db, "detected_runtimes", res["runtimes"])
-    settings_service.set(db, "last_detection", datetime.now(timezone.utc).isoformat())
+    settings_service.set(db, "last_detection", datetime.now(UTC).isoformat())
     return res
 
 
@@ -264,7 +276,7 @@ def del_image(iid: str, db: Session = Depends(get_db)) -> None:
 # ---- dashboard ------------------------------------------------------------
 @router.get("/dashboard")
 def dashboard(db: Session = Depends(get_db)) -> dict[str, Any]:
-    now = datetime.now(timezone.utc)
+    now = datetime.now(UTC)
     since = now - timedelta(days=3)
     stories = db.execute(select(Story).where(Story.last_updated >= since, Story.status != "ignored").order_by(Story.relevance_score.desc(), Story.last_updated.desc()).limit(40)).scalars().all()
 

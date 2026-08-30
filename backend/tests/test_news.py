@@ -1,7 +1,7 @@
 """News normalisation, duplicate detection, clustering, principle linking."""
 from __future__ import annotations
 
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 
 from poly.providers.base import RawArticle
 from poly.providers.news.rss import parse_feed_bytes
@@ -24,7 +24,7 @@ def test_rss_parsing_extracts_fields():
     assert a.title.startswith("Senate passes bill")
     assert a.publication == "Example Wire"
     assert a.author == "Jane Reporter"
-    assert a.published_at == datetime(2026, 8, 30, 12, 0, tzinfo=timezone.utc)
+    assert a.published_at == datetime(2026, 8, 30, 12, 0, tzinfo=UTC)
     assert "52-48" in a.summary
 
 
@@ -121,7 +121,7 @@ def test_provider_fallback_never_goes_to_cloud(db, seeded):
         db.commit()
         try:
             Router(db).chat("FAST", [ChatMessage("user", "hi")])
-            assert False, "should have raised"
+            raise AssertionError("should have raised")
         except ProviderError as e:
             assert "No local model" in str(e)
         mock.enabled = True

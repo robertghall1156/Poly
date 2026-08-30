@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import logging
 import time
-from datetime import datetime, timezone
+from datetime import UTC, datetime
 from urllib.parse import quote_plus
 
 import feedparser
@@ -21,7 +21,7 @@ def _parse_date(entry) -> datetime | None:
         val = entry.get(key)
         if val:
             try:
-                return datetime.fromtimestamp(time.mktime(val), tz=timezone.utc)
+                return datetime.fromtimestamp(time.mktime(val), tz=UTC)
             except (OverflowError, ValueError):
                 pass
     for key in ("published", "updated", "dc_date"):
@@ -29,7 +29,7 @@ def _parse_date(entry) -> datetime | None:
         if val:
             try:
                 d = dateparser.parse(val)
-                return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+                return d if d.tzinfo else d.replace(tzinfo=UTC)
             except (ValueError, OverflowError, TypeError):
                 pass
     return None
