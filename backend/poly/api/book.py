@@ -53,6 +53,14 @@ def create_book(body: BookIn, db: Session = Depends(get_db)) -> dict[str, Any]:
     return d(b)
 
 
+@router.get("/notes")
+def list_notes(kind: str | None = None, db: Session = Depends(get_db)) -> list[dict[str, Any]]:
+    q = select(BookNote)
+    if kind:
+        q = q.where(BookNote.kind == kind)
+    return dl(db.execute(q.order_by(BookNote.created_at.desc())).scalars())
+
+
 @router.get("/{bid}")
 def get_book(bid: str, db: Session = Depends(get_db)) -> dict[str, Any]:
     b = get_or_404(db, BookProject, bid)
@@ -147,14 +155,6 @@ def add_note(body: NoteIn, db: Session = Depends(get_db)) -> dict[str, Any]:
     db.refresh(n)
     embed_entity(db, "book_note", n)
     return d(n)
-
-
-@router.get("/notes")
-def list_notes(kind: str | None = None, db: Session = Depends(get_db)) -> list[dict[str, Any]]:
-    q = select(BookNote)
-    if kind:
-        q = q.where(BookNote.kind == kind)
-    return dl(db.execute(q.order_by(BookNote.created_at.desc())).scalars())
 
 
 @router.patch("/notes/{nid}")
