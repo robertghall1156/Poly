@@ -9,7 +9,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from . import __version__
-from .api import book, content, principles, stories, system, think, videos
+from .api import book, content, principles, stories, studio, system, think, videos
 from .config import get_settings
 from .db import init_db, session_scope
 
@@ -58,7 +58,7 @@ async def lifespan(app: FastAPI):
 def create_app() -> FastAPI:
     app = FastAPI(title="Poly", version=__version__, lifespan=lifespan)
     app.add_middleware(CORSMiddleware, allow_origins=["http://localhost:3000", "http://127.0.0.1:3000"], allow_methods=["*"], allow_headers=["*"])
-    for r in (principles.router, stories.router, think.router, content.router, videos.router, book.router, system.router):
+    for r in (principles.router, stories.router, think.router, content.router, videos.router, book.router, studio.router, system.router):
         app.include_router(r, prefix="/api")
 
     @app.get("/api/health")

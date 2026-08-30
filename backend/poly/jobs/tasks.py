@@ -217,6 +217,56 @@ def fact_check_task(job_id: str, content_item_id: str) -> None:
 
 
 @huey.task()
+def faceless_generate_task(job_id: str, project_id: str, extra_instructions: str = "") -> None:
+    from ..models import VideoProject
+    from ..services.faceless import generate_carousel_slides, generate_scenes
+
+    def run(db, job, progress):
+        project = db.get(VideoProject, project_id)
+        if project is None:
+            raise ValueError("project not found")
+        progress(0.1, "Writing scenes")
+        if project.kind == "carousel":
+            generate_carousel_slides(db, project, extra_instructions=extra_instructions)
+        else:
+            generate_scenes(db, project, extra_instructions=extra_instructions)
+        return {"project_id": project_id, "scenes": len(project.scenes or []), "content_item_id": project.content_item_id}
+
+    _run_tracked(job_id, run)
+
+
+@huey.task()
+def faceless_render_task(job_id: str, project_id: str) -> None:
+    from ..models import VideoProject
+    from ..services.render_video import render_project
+
+    def run(db, job, progress):
+        project = db.get(VideoProject, project_id)
+        if project is None:
+            raise ValueError("project not found")
+        render_project(db, project, progress=progress)
+        return {"project_id": project_id, "render_path": project.render_path}
+
+    _run_tracked(job_id, run)
+
+
+@huey.task()
+def faceless_variation_task(job_id: str, project_id: str, variation: str) -> None:
+    from ..models import VideoProject
+    from ..services.faceless import apply_variation
+
+    def run(db, job, progress):
+        project = db.get(VideoProject, project_id)
+        if project is None:
+            raise ValueError("project not found")
+        progress(0.1, f"Rewriting: {variation.replace('_', ' ')}")
+        apply_variation(db, project, variation)
+        return {"project_id": project_id, "variation": variation}
+
+    _run_tracked(job_id, run)
+
+
+@huey.task()
 def detect_models_task(job_id: str) -> None:
     from ..providers.registry import detect_and_register
 
@@ -264,6 +314,9 @@ def enqueue(db, kind: str, payload: dict[str, Any] | None = None) -> Job:
         "social_bundle": lambda: social_bundle_task(job.id, payload["content_item_id"]),
         "fact_check": lambda: fact_check_task(job.id, payload["content_item_id"]),
         "detect_models": lambda: detect_models_task(job.id),
+        "faceless_generate": lambda: faceless_generate_task(job.id, payload["project_id"], payload.get("extra_instructions", "")),
+        "faceless_render": lambda: faceless_render_task(job.id, payload["project_id"]),
+        "faceless_variation": lambda: faceless_variation_task(job.id, payload["project_id"], payload["variation"]),
     }
     if kind not in table:
         raise ValueError(f"unknown job kind {kind}")

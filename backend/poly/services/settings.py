@@ -31,6 +31,25 @@ DEFAULTS: dict[str, Any] = {
     },
     "github": {"repo": "", "owner": "", "default_branch": "main"},
     "ai": {"task_overrides": {}},
+    # Central brand design tokens. Renderers and the UI read these — never hard-code colors.
+    "brand": {
+        "primary": "#102A43",      # deep navy
+        "accent": "#0F766E",       # teal
+        "secondary": "#52667A",    # slate
+        "background": "#F8F9FA",   # warm off-white
+        "highlight": "#C89B3C",    # muted gold
+        "text_on_dark": "#F8F9FA",
+        "text_on_light": "#102A43",
+        "font": "",                 # empty = system font stack (Arial/Helvetica on macOS)
+        "logo_text": "",            # small corner mark on videos/carousels; empty = none
+    },
+    "voice": {
+        "mode": "none",            # none | tts   ("my voice later" is a future provider slot)
+        "engine": "auto",          # auto | say | piper
+        "voice": "",               # engine-specific voice name (e.g. macOS "Samantha")
+        "rate": 180,                # words per minute for say
+        "piper_model": "",         # path to a piper .onnx voice, if using piper
+    },
 }
 
 

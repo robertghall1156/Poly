@@ -704,3 +704,45 @@ class Job(Base):
     created_at: Mapped[datetime] = mapped_column(UTCDateTime(), default=utcnow, index=True)
     started_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
     finished_at: Mapped[datetime | None] = mapped_column(UTCDateTime())
+
+# ---------------------------------------------------------------------------
+# Faceless Content Studio
+# ---------------------------------------------------------------------------
+FACELESS_FORMATS = [
+    "question", "text_explainer", "news_explainer", "did_you_know", "system_explainer",
+    "data_story", "argument", "my_take", "custom",
+]
+SCENE_VISUAL_TYPES = ["text", "title", "question", "chart", "comparison", "counter", "timeline", "list", "image", "quote", "icon"]
+
+
+class VideoProject(TimestampMixin, Base):
+    """A scripted (faceless) video or carousel. Scenes follow the VideoScene JSON schema:
+
+    {order, duration, narration, on_screen_text, subtext, visual_type, visual, animation,
+     transition, background, emphasis, source}
+    """
+
+    __tablename__ = "video_projects"
+
+    id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
+    content_item_id: Mapped[str] = mapped_column(ForeignKey("content_items.id", ondelete="CASCADE"), index=True)
+    kind: Mapped[str] = mapped_column(String(20), default="faceless_video")  # faceless_video | carousel
+    format: Mapped[str] = mapped_column(String(30), default="question")
+    target_seconds: Mapped[int] = mapped_column(Integer, default=30)
+    platform: Mapped[str] = mapped_column(String(30), default="youtube_short")
+    voice_mode: Mapped[str] = mapped_column(String(10), default="none")  # none | tts
+    tts_voice: Mapped[str] = mapped_column(String(80), default="")
+    music_path: Mapped[str] = mapped_column(String(2000), default="")
+    music_recommendation: Mapped[str] = mapped_column(String(300), default="")
+    scenes: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    previous_scenes: Mapped[list[Any]] = mapped_column(JSON, default=list)  # last version, for undo
+    sources: Mapped[list[Any]] = mapped_column(JSON, default=list)  # [{label, url}]
+    caption: Mapped[str] = mapped_column(Text, default="")
+    hashtags: Mapped[list[Any]] = mapped_column(JSON, default=list)
+    brand_overrides: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+    render_status: Mapped[str] = mapped_column(String(20), default="none")  # none|queued|rendering|done|failed
+    render_path: Mapped[str] = mapped_column(String(2000), default="")
+    render_error: Mapped[str | None] = mapped_column(Text)
+    generation_meta: Mapped[dict[str, Any]] = mapped_column(JSON, default=dict)
+
+    content_item: Mapped[ContentItem] = relationship()

@@ -114,6 +114,45 @@ class MockLLMProvider(LLMProvider, EmbeddingProvider):
                     {"text": "Most billionaires pay nothing.", "status": "UNVERIFIED", "sources": [], "notes": "needs data"},
                 ]
             }
+        if task == "faceless":
+            return {
+                "title": "Should money equal political power?",
+                "caption": "One person, one vote — but not one voice? What do you think?",
+                "hashtags": ["politics", "campaignfinance", "civics"],
+                "music_recommendation": "minimal pulsing electronic, thoughtful",
+                "sources": [{"label": "Example Wire", "url": "https://example-wire.com/politics/senate-corporate-tax"}],
+                "scenes": [
+                    {"duration": 3, "narration": "If every American gets one vote…", "on_screen_text": "IF EVERY AMERICAN GETS ONE VOTE…", "subtext": "", "visual_type": "title", "visual": {}, "animation": "fade", "transition": "cut", "background": "primary", "emphasis": ["ONE"], "source": ""},
+                    {"duration": 4, "narration": "why can money make one voice a thousand times louder?", "on_screen_text": "WHY CAN MONEY MAKE ONE VOICE 1,000X LOUDER?", "subtext": "", "visual_type": "question", "visual": {}, "animation": "slide_up", "transition": "fade", "background": "primary", "emphasis": ["1,000X"], "source": ""},
+                    {"duration": 5, "narration": "In the last cycle, outside groups spent over four billion dollars.", "on_screen_text": "Outside spending last cycle", "subtext": "Federal elections", "visual_type": "counter", "visual": {"from": 0, "to": 4000000000, "prefix": "$", "suffix": "", "label": "outside spending"}, "animation": "pop", "transition": "cut", "background": "background", "emphasis": [], "source": "Example Wire"},
+                    {"duration": 4, "narration": "Political equality is the premise of one person, one vote.", "on_screen_text": "Equal votes. Unequal volume.", "subtext": "", "visual_type": "comparison", "visual": {"left": {"label": "Your vote", "value": "1"}, "right": {"label": "A $100M donor", "value": "1"}}, "animation": "fade", "transition": "cut", "background": "primary", "emphasis": ["Unequal"], "source": ""},
+                    {"duration": 3, "narration": "What do you think?", "on_screen_text": "WHAT DO YOU THINK?", "subtext": "Tell me below", "visual_type": "question", "visual": {}, "animation": "pop", "transition": "fade", "background": "accent", "emphasis": [], "source": ""},
+                ],
+            }
+        if task == "meme_concepts":
+            return {
+                "concepts": [
+                    {"template": "two_buttons", "concept": "The eternal budget dilemma", "visual": "Sweating figure choosing between two buttons", "top_text": "Cut the deficit", "bottom_text": "Never touch any program or tax", "caption": "Every Congress ever. What would you actually cut?", "why_it_works": "System absurdity: both parties claim both buttons.", "humor_type": "system absurdity"},
+                    {"template": "expectation_reality", "concept": "Committee hearings", "visual": "Split panel", "top_text": "EXPECTATION: rigorous oversight", "bottom_text": "REALITY: 5-minute speeches at witnesses", "caption": "Oversight or audition?", "why_it_works": "Observational, non-partisan.", "humor_type": "bureaucracy humor"},
+                    {"template": "classic", "concept": "Peer benchmarking", "visual": "Plain bold meme", "top_text": "EVERY BOARD: WE PAY ABOVE MEDIAN", "bottom_text": "THE MEDIAN: RISES FOREVER", "caption": "CEO pay math explained in one meme.", "why_it_works": "Economic humor grounded in a real mechanism.", "humor_type": "economic humor"},
+                ]
+            }
+        if task == "carousel":
+            return {
+                "title": "Why does this system exist?",
+                "caption": "Swipe through — then tell me where you land.",
+                "hashtags": ["civics", "policy"],
+                "sources": [{"label": "Example Wire", "url": "https://example-wire.com/politics/senate-corporate-tax"}],
+                "slides": [
+                    {"heading": "WHY DOES THIS SYSTEM EXIST?", "body": "", "footer": "swipe →", "layout": "title"},
+                    {"heading": "What happened", "body": "The Senate voted 52–48 to raise the corporate rate to 25% and close loopholes.", "footer": "Source: Example Wire", "layout": "body"},
+                    {"heading": "How it works", "body": "Effective rates depend on deductions and carve-outs more than the headline rate.", "footer": "", "layout": "body"},
+                    {"heading": "Why it was created", "body": "Each loophole began as an incentive for something Congress wanted more of.", "footer": "", "layout": "body"},
+                    {"heading": "What's broken", "body": "Stacked incentives now let similar firms pay wildly different rates.", "footer": "", "layout": "body"},
+                    {"heading": "A possible fix", "body": "Close loopholes first; judge the right rate after avoidance is repaired.", "footer": "", "layout": "body"},
+                    {"heading": "What do you think?", "body": "Is the problem the rate — or the exceptions?", "footer": "Comment below", "layout": "question"},
+                ],
+            }
         if task == "clip_scoring":
             return {"scores": [{"index": 0, "hook": 0.8, "self_contained": 0.7, "energy": 0.6, "clarity": 0.8, "surprise": 0.5, "educational": 0.8, "controversy": 0.3, "news_relevance": 0.4, "title": "Mock clip", "caption": "Mock caption", "why": "Strong hook"}]}
         if task == "video_summary":
