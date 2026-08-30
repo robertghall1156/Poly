@@ -1,7 +1,7 @@
 """Story clustering.
 
 An article joins an existing *recent* story when its title/summary is similar enough
-(TF-IDF cosine over keyword tokens, boosted by shared named-entity-like capitalised terms and
+(term-frequency cosine over keyword tokens, boosted by shared named-entity-like capitalised terms and
 shared topics); otherwise it starts a new story. This is deterministic, fast, and needs no model.
 The LLM later refines story titles/summaries during analysis.
 """
@@ -49,15 +49,13 @@ def entities(text: str) -> set[str]:
     return out
 
 
-def _tfidf_vectors(docs: list[list[str]]) -> list[dict[str, float]]:
-    df: Counter = Counter()
-    for d in docs:
-        df.update(set(d))
-    n = len(docs)
+def _tf_vectors(docs: list[list[str]]) -> list[dict[str, float]]:
+    """Log-scaled term-frequency vectors (unit length). IDF is deliberately not computed across a
+    pair of documents — with two docs it punishes exactly the shared terms we care about."""
     vecs = []
     for d in docs:
         tf = Counter(d)
-        v = {w: (1 + math.log(c)) * math.log((n + 1) / (df[w] + 0.5)) for w, c in tf.items()}
+        v = {w: 1 + math.log(c) for w, c in tf.items()}
         norm = math.sqrt(sum(x * x for x in v.values())) or 1.0
         vecs.append({w: x / norm for w, x in v.items()})
     return vecs
@@ -73,7 +71,7 @@ def similarity(article_text: str, article_topics: list[str], story_text: str, st
     ta, ts = tokens(article_text), tokens(story_text)
     if not ta or not ts:
         return 0.0
-    va, vs = _tfidf_vectors([ta, ts])
+    va, vs = _tf_vectors([ta, ts])
     sim = cosine(va, vs)
     ea, es = entities(article_text), entities(story_text)
     if ea and es:
