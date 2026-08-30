@@ -1,0 +1,24 @@
+# Optional: PostgreSQL 16 with pgvector for Poly.
+# Poly runs on SQLite by default; use this when you want Postgres.
+#   docker compose up -d
+#   then set POLY_DATABASE_URL=postgresql+psycopg://poly:poly@localhost:5432/poly in .env
+services:
+  db:
+    image: pgvector/pgvector:pg16
+    container_name: poly-db
+    environment:
+      POSTGRES_USER: poly
+      POSTGRES_PASSWORD: poly
+      POSTGRES_DB: poly
+    ports:
+      - "5432:5432"
+    volumes:
+      - poly-pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U poly"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+volumes:
+  poly-pgdata:

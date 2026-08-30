@@ -1,0 +1,6 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0"><channel><title>Example Wire</title><link>https://example-wire.com</link>
+<item><title>Senate passes bill raising corporate tax rate to 25% after loophole review</title><link>https://www.example-wire.com/politics/senate-corporate-tax?utm_source=rss&amp;utm_medium=feed</link><pubDate>Sun, 30 Aug 2026 12:00:00 GMT</pubDate><author>Jane Reporter</author><description>The Senate voted 52-48 to raise the corporate tax rate to 25 percent while closing several loopholes identified in a GAO review. Critics say the change will slow hiring.</description></item>
+<item><title>Pentagon audit finds $3 billion in unaccounted procurement spending</title><link>https://www.example-wire.com/defense/pentagon-audit</link><pubDate>Sun, 30 Aug 2026 11:00:00 GMT</pubDate><description>A Government Accountability Office audit found the Pentagon could not account for $3 billion in contractor payments across six failed programs.</description></item>
+<item><title>Tech firm replaces 1,200 customer service jobs with AI agents</title><link>https://www.example-wire.com/business/ai-layoffs</link><pubDate>Sun, 30 Aug 2026 10:00:00 GMT</pubDate><description>The company said generative AI agents now handle most support tickets; laid-off workers will receive retraining stipends.</description></item>
+</channel></rss>

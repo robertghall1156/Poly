@@ -1,0 +1,61 @@
+# --- secrets & local config ---
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+secrets/
+
+# --- Poly runtime data (database, renders, caches) ---
+data/
+backend/data/
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+huey.db*
+
+# --- personal media: never commit videos/audio/images from the library ---
+*.mp4
+*.mov
+*.m4v
+*.mkv
+*.avi
+*.webm
+*.mp3
+*.wav
+*.m4a
+*.aac
+*.flac
+!backend/tests/fixtures/**/*.wav
+media/
+renders/
+uploads/
+
+# --- python ---
+__pycache__/
+*.py[cod]
+.venv/
+venv/
+.pytest_cache/
+.mypy_cache/
+.ruff_cache/
+*.egg-info/
+dist/
+build/
+
+# --- node / next ---
+node_modules/
+.next/
+out/
+*.tsbuildinfo
+next-env.d.ts
+.turbo/
+
+# --- os / editors ---
+.DS_Store
+Thumbs.db
+.idea/
+.vscode/
+*.swp
+*.log
