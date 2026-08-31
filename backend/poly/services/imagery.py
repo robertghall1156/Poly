@@ -45,6 +45,10 @@ log = logging.getLogger(__name__)
 MAX_BYTES = 25 * 1024 * 1024
 MAX_EDGE = 2400
 TREATMENTS = ["full_bleed", "band", "portrait"]
+# Bumped whenever picture selection itself gets better. A picture Poly chose under older,
+# worse rules is re-picked on the next run; one the owner pinned is never touched. Without
+# this, an improvement only reaches new decks and every existing slide keeps its bad guess.
+PICKER_VERSION = 2
 
 # Words that would push a generator toward a photograph. Stripped from every prompt.
 _PHOTOREAL = re.compile(r"\b(photo\w*|photograph\w*|realistic|hyper[- ]?real\w*|lifelike|4k|8k|dslr|render(ing)?|cgi|deep\s*fake|deepfake)\b", re.I)
@@ -364,9 +368,13 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
         # plan_scene_visual reports "none" for a scene that already has a picture, so the
         # subject is resolved directly here — judging that picture is the whole point.
         _, current_subject, current_thing = _subject_query(scene, cast)
-        if visual.get("path") and not visual.get("pinned") and not _still_depicts(db, visual, current_subject, current_thing):
-            log.info("dropping a picture that does not depict %s", getattr(current_subject, "name", "the subject"))
-            for key in ("path", "image_id", "credit", "source_page", "generated", "auto", "query"):
+        stale_picker = int(visual.get("picker") or 0) < PICKER_VERSION
+        if visual.get("path") and not visual.get("pinned") and (stale_picker or not _still_depicts(db, visual, current_subject, current_thing)):
+            log.info(
+                "re-picking a picture (%s)",
+                "chosen under older rules" if stale_picker else f"does not depict {getattr(current_subject, 'name', 'the subject')}",
+            )
+            for key in ("path", "image_id", "credit", "source_page", "generated", "auto", "query", "picker"):
                 visual.pop(key, None)
             scene["visual"] = visual
             plan = plan_scene_visual(scene, context, cast)
@@ -416,6 +424,7 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
                 "source_page": (row.params or {}).get("source_page", ""),
                 "generated": bool(row.is_generated),
                 "auto": True,
+                "picker": PICKER_VERSION,
                 "query": plan.get("query", ""),
                 "treatment": visual.get("treatment") or ("full_bleed" if i == 0 else "band"),
             }
