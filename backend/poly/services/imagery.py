@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import re
+import time
 from pathlib import Path
 from typing import Any
 
@@ -49,7 +50,7 @@ TREATMENTS = ["full_bleed", "band", "portrait"]
 # Bumped whenever picture selection itself gets better. A picture Poly chose under older,
 # worse rules is re-picked on the next run; one the owner pinned is never touched. Without
 # this, an improvement only reaches new decks and every existing slide keeps its bad guess.
-PICKER_VERSION = 4
+PICKER_VERSION = 5
 
 # Words that would push a generator toward a photograph. Stripped from every prompt.
 _PHOTOREAL = re.compile(r"\b(photo\w*|photograph\w*|realistic|hyper[- ]?real\w*|lifelike|4k|8k|dslr|render(ing)?|cgi|deep\s*fake|deepfake)\b", re.I)
@@ -59,6 +60,17 @@ _STOP = {"the", "a", "an", "and", "or", "but", "of", "to", "in", "on", "for", "w
 # ---------------------------------------------------------------------------
 # Search
 # ---------------------------------------------------------------------------
+_SEARCH_CACHE: dict[str, tuple[float, list[dict[str, Any]]]] = {}
+_CACHE_TTL = 300.0
+
+
+def _cached(query: str) -> list[dict[str, Any]] | None:
+    hit = _SEARCH_CACHE.get(query.lower())
+    if hit and time.monotonic() - hit[0] < _CACHE_TTL:
+        return [dict(c) for c in hit[1]]
+    return None
+
+
 def search(db: Session, query: str, *, limit: int = 12, subject: Subject | None = None, thing: str = "") -> list[dict[str, Any]]:
     """Openly-licensed pictures for a query, best first.
 
@@ -69,20 +81,13 @@ def search(db: Session, query: str, *, limit: int = 12, subject: Subject | None 
     """
     policy = NetworkPolicy.load(db)
     policy.check(locality="cloud", purpose="research", provider="image_search")
-    out: list[dict[str, Any]] = []
-    errors: list[str] = []
-    for provider in all_providers():
-        try:
-            found = [_as_dict(c) for c in provider.search(query, limit=limit) if c.url]
-        except ProviderError as e:
-            errors.append(str(e))
-            log.warning("image search via %s failed: %s", provider.name, e)
-            continue
-        out.extend(found)
-        # Providers are in precision order. Topping up a good answer with a looser source is
-        # how a deck about a president picks up his daughter and a typeface named after him.
-        if len(out) >= 3:
-            break
+    cached = _cached(query)
+    if cached is not None:
+        out, errors = cached, []
+    else:
+        out, errors = _fetch_candidates(query, limit)
+        if out:
+            _SEARCH_CACHE[query.lower()] = (time.monotonic(), [dict(c) for c in out])
     for c in out:
         c["quality"] = picture_rank(c.get("title", ""), credit=c.get("author", ""))
     if subject is not None:
@@ -98,6 +103,24 @@ def search(db: Session, query: str, *, limit: int = 12, subject: Subject | None 
     if not out and errors:
         raise ProviderError("; ".join(errors[:2]), provider="image_search")
     return out
+
+
+def _fetch_candidates(query: str, limit: int) -> tuple[list[dict[str, Any]], list[str]]:
+    out: list[dict[str, Any]] = []
+    errors: list[str] = []
+    for provider in all_providers():
+        try:
+            found = [_as_dict(c) for c in provider.search(query, limit=limit) if c.url]
+        except ProviderError as e:
+            errors.append(str(e))
+            log.warning("image search via %s failed: %s", provider.name, e)
+            continue
+        out.extend(found)
+        # Providers are in precision order. Topping up a good answer with a looser source is
+        # how a deck about a president picks up his daughter and a typeface named after him.
+        if len(out) >= 3:
+            break
+    return out, errors
 
 
 def _as_dict(c: ImageCandidate) -> dict[str, Any]:
@@ -400,9 +423,7 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
                 continue
 
         row = None
-        if want in ("photo", "illustration") and plan.get("query"):
-            row = _from_library(db, plan["query"], exclude=used, subject=plan.get("subject"), thing=plan.get("thing", ""))
-        if row is None and want == "photo" and can_search:
+        if want == "photo" and can_search:
             try:
                 for cand in search(db, plan["query"], limit=6, subject=plan.get("subject"), thing=plan.get("thing", "")):
                     if cand["url"] in used:
@@ -414,6 +435,8 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
                         log.info("skipping candidate %s: %s", cand.get("url"), e)
             except (ProviderError, PrivacyViolation) as e:
                 log.warning("image search unavailable: %s", e)
+        if row is None and want in ("photo", "illustration") and plan.get("query"):
+            row = _from_library(db, plan["query"], exclude=used, subject=plan.get("subject"), thing=plan.get("thing", ""))
         if row is None and want == "illustration" and allow_generate:
             row = generate_illustration(db, plan["query"], mood=plan.get("mood", ""), content_item_id=project.content_item_id)
 
