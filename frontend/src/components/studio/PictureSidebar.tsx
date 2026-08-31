@@ -51,16 +51,32 @@ export function PictureSidebar({
     if (tab === "library" && library === null) void loadLibrary();
   }, [tab, library, loadLibrary]);
 
-  // Seed the box with what this slide is about, so the common case is one keystroke: Enter.
+  // Search the moment a slide is selected, using what that slide is about. Requiring a click
+  // to see any options at all is what made the panel look empty and broken; the results are
+  // cached server-side per query, so opening a deck costs one lookup, not one per slide.
+  const searchedFor = React.useRef<string>("");
   React.useEffect(() => {
     const s = scenes[selected];
-    if (!s || q) return;
-    const guess = String((s.visual as { query?: string } | undefined)?.query || "");
-    if (guess) setQ(guess);
-  }, [selected, scenes, q]);
+    if (!s) return;
+    const guess = String((s.visual as { query?: string } | undefined)?.query || "").trim();
+    if (!guess || guess === searchedFor.current) return;
+    searchedFor.current = guess;
+    setQ(guess);
+    let cancelled = false;
+    setBusy(true);
+    api
+      .searchImages(guess, 18)
+      .then((r) => !cancelled && setResults(r.results))
+      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)))
+      .finally(() => !cancelled && setBusy(false));
+    return () => {
+      cancelled = true;
+    };
+  }, [selected, scenes]);
 
   const runSearch = async () => {
     if (!q.trim()) return;
+    searchedFor.current = q.trim();
     setBusy(true);
     setError(null);
     try {
