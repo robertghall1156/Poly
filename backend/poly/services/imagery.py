@@ -36,6 +36,7 @@ from ..models import Article, Image, VideoProject
 from ..providers.base import ImageCandidate, PrivacyViolation, ProviderError
 from ..providers.image.local_generative import LocalGenerativeImageProvider
 from ..providers.image_search import all_providers
+from ..providers.image_search.wikipedia import rank as picture_rank
 from .privacy import NetworkPolicy
 from .subjects import Subject, extract, for_scene, frame_for, score_candidate, thing_in
 from .symbols import SYMBOLS
@@ -48,7 +49,7 @@ TREATMENTS = ["full_bleed", "band", "portrait"]
 # Bumped whenever picture selection itself gets better. A picture Poly chose under older,
 # worse rules is re-picked on the next run; one the owner pinned is never touched. Without
 # this, an improvement only reaches new decks and every existing slide keeps its bad guess.
-PICKER_VERSION = 2
+PICKER_VERSION = 3
 
 # Words that would push a generator toward a photograph. Stripped from every prompt.
 _PHOTOREAL = re.compile(r"\b(photo\w*|photograph\w*|realistic|hyper[- ]?real\w*|lifelike|4k|8k|dslr|render(ing)?|cgi|deep\s*fake|deepfake)\b", re.I)
@@ -473,10 +474,15 @@ def _from_library(db: Session, query: str, *, exclude: set[str], subject: Subjec
         if not row.path or row.path in exclude or str((row.params or {}).get("url") or "") in exclude:
             continue
         hay = f"{row.title} {row.prompt}"
+        # The library is not a free pass: a picture that was a poor choice the first time is
+        # still a poor choice, and reusing it is how a yearbook portrait spread across a deck.
+        quality = picture_rank(row.title, credit=str((row.params or {}).get("author") or ""))
+        if quality < 40:
+            continue
         if subject is not None:
             score = score_candidate(hay, subject, thing=thing)
-            if score > 0 and (best is None or score > best[0]):
-                best = (score, row)
+            if score > 0 and (best is None or score * 10 + quality > best[0]):
+                best = (score * 10 + quality, row)
             continue
         terms = [t for t in query.lower().split() if len(t) > 3][:3]
         if terms and sum(t in hay.lower() for t in terms) >= max(1, len(terms) - 1):
