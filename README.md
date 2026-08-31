@@ -371,3 +371,21 @@ scripts/          setup.sh, dev.sh
 data/             (git-ignored) SQLite DB, job queue, renders, images, caches
 docker-compose.yml  optional Postgres + pgvector
 ```
+
+### Pictures in slides and shorts
+
+`+ Create → … → Add pictures` gives every scene a picture. Poly looks in this order: a picture
+you already chose → the image library → an openly-licensed photograph (Wikimedia Commons, then
+Openverse) → a locally-generated editorial cartoon, if you have an image model → a symbolic mark
+drawn from the brand. Licenses and photographers are stored with the file and printed on the slide.
+
+Only republishable licenses are downloaded (public domain, CC0, CC BY, CC BY-SA — never NC or ND).
+Generated pictures are editorial cartoons, never photorealistic images of real people, and are
+always labelled as AI-generated on the slide.
+
+Picture search needs `Allow internet research` (Settings → Privacy), which is on by default. To
+check it can reach the sources from your machine:
+
+```bash
+cd backend && .venv/bin/python -m poly.cli images "trump executive order signing"
+```

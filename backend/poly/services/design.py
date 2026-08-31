@@ -401,7 +401,7 @@ def sanitize(text: str) -> tuple[str, bool]:
 # ---------------------------------------------------------------------------
 # Roles — what kind of slide is this, and how should it be composed
 # ---------------------------------------------------------------------------
-ROLES = ["cover", "point", "stat", "chart", "contrast", "quote", "list", "timeline", "image", "question", "closer"]
+ROLES = ["cover", "point", "stat", "chart", "contrast", "quote", "list", "timeline", "image", "symbol", "question", "closer"]
 
 _VISUAL_ROLE = {
     "chart": "chart",
@@ -411,6 +411,7 @@ _VISUAL_ROLE = {
     "list": "list",
     "image": "image",
     "quote": "quote",
+    "symbol": "symbol",
     "question": "question",
     "title": "cover",
 }

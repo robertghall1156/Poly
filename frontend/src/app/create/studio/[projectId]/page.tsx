@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ChevronDown, Plus, Trash2, Undo2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Image as ImageIcon, Plus, Trash2, Undo2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
 import type { Job, SceneVisual, StudioProject, StudioScene } from "@/lib/types";
@@ -47,6 +47,7 @@ export default function StudioEditorPage() {
   const [title, setTitle] = React.useState("");
   const [renderJob, setRenderJob] = React.useState<string | null>(null);
   const [variationJob, setVariationJob] = React.useState<string | null>(null);
+  const [imageryJob, setImageryJob] = React.useState<string | null>(null);
   const [varOpen, setVarOpen] = React.useState(false);
   const act = useAction();
   const saveAct = useAction();
@@ -150,6 +151,13 @@ export default function StudioEditorPage() {
     if (proj && p) project.setData({ ...proj, scenes: p.scenes });
   };
 
+  // Pictures: licensed photos where a real subject exists, drawn marks where the point is an act.
+  const addPictures = async () => {
+    if (dirty) await saveScenes();
+    const j = await act.run(() => api.addPictures(projectId));
+    if (j) setImageryJob(j.id);
+  };
+
   const render = async () => {
     if (dirty) await saveScenes();
     const j = await act.run(() => api.renderProject(projectId));
@@ -236,6 +244,9 @@ export default function StudioEditorPage() {
         ) : (
           <span className="text-[11px] text-zinc-400">{saveAct.busy ? "Saving…" : "Saved"}</span>
         )}
+        <Button size="sm" variant="secondary" onClick={addPictures} loading={act.busy} disabled={!!imageryJob} data-testid="add-pictures">
+          <ImageIcon className="h-3.5 w-3.5" /> Add pictures
+        </Button>
         <Button size="sm" variant="default" onClick={render} loading={act.busy} disabled={!!renderJob && p.render_status !== "done" && p.render_status !== "failed"} data-testid="render">
           Render
         </Button>
@@ -245,6 +256,20 @@ export default function StudioEditorPage() {
       </div>
       <ErrorNotice error={act.error ?? saveAct.error} className="mb-3" />
       {variationJob ? <JobStatus jobId={variationJob} label="Applying variation" className="mb-3" onDone={onVariationDone} /> : null}
+      {imageryJob ? (
+        <JobStatus
+          jobId={imageryJob}
+          label="Finding pictures"
+          className="mb-3"
+          onDone={(j) => {
+            setImageryJob(null);
+            if (j.status === "succeeded") {
+              void project.reload();
+              setVersion((x) => x + 1);
+            }
+          }}
+        />
+      ) : null}
       {renderJob ? <JobStatus jobId={renderJob} label={isCarousel ? "Rendering slides" : "Rendering video"} className="mb-3" onDone={onRenderDone} /> : null}
       {p.render_status === "failed" && p.render_error ? <ErrorNotice error={`Render failed: ${p.render_error}`} className="mb-3" /> : null}
 

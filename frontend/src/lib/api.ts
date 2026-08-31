@@ -49,6 +49,7 @@ import type {
   VideoFolder,
   VideoListItem,
   LocalAIStatus,
+  ImageCandidate,
 } from "./types";
 
 export const API_BASE = process.env.NEXT_PUBLIC_POLY_API ?? "http://localhost:8000";
@@ -243,6 +244,10 @@ export const api = {
   regenerateScene: (id: string, idx: number, instruction = "") => post<StudioProject>(`/studio/projects/${id}/scenes/${idx}/regenerate`, { instruction }),
   scenePreviewUrl: (id: string, idx: number, scale = 0.35, v: string | number = 0) => `${API_BASE}/api/studio/projects/${id}/scenes/${idx}/preview?scale=${scale}&v=${v}`,
   renderProject: (id: string) => post<Job>(`/studio/projects/${id}/render`),
+  addPictures: (id: string) => post<Job>(`/studio/projects/${id}/imagery`, {}),
+  searchImages: (q: string, limit = 12) => get<{ results: ImageCandidate[] }>(`/studio/images/search${qs({ q, limit })}`),
+  attachSceneImage: (id: string, idx: number, candidate: ImageCandidate, treatment = "band") =>
+    post<StudioProject>(`/studio/projects/${id}/scenes/${idx}/image`, { scene_index: idx, candidate, treatment }),
   projectFileUrl: (id: string) => `${API_BASE}/api/studio/projects/${id}/file`,
   slideFileUrl: (id: string, idx: number) => `${API_BASE}/api/studio/projects/${id}/slides/${idx}/file`,
   studioQuality: (id: string) => get<{ checks: QualityCheck[]; passed: boolean }>(`/studio/projects/${id}/quality`),

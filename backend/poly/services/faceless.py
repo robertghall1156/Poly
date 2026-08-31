@@ -30,6 +30,7 @@ from ..providers.tts.local import WORDS_PER_SECOND
 from .design import role_for
 from .llm_utils import as_list, as_str, chat_json
 from .search import embed_entity
+from .symbols import SYMBOLS
 from .voice import INTEGRITY, VOICE
 
 log = logging.getLogger(__name__)
@@ -119,6 +120,13 @@ footage, no faces). Return JSON:
              for comparison: {{"left": {{"label": "", "value": ""}}, "right": {{"label": "", "value": ""}}}};
              for timeline: {{"points": [{{"label": "", "text": ""}}]}};
              for list: {{"items": ["...", "..."]}};
+             for a scene that should carry a PICTURE instead of a data visual, ask for one:
+               {{"want": "photo", "query": "3-6 word search for an openly-licensed photo", "mood": "the feeling it should carry"}}
+               or {{"want": "symbol", "symbol": one of {SYMBOLS}, plus that symbol's words:
+                    rename needs old+new, stamp/plaque need text, seal needs text+center,
+                    scale needs left/right each with label+value, signature needs text}}
+               or {{"want": "illustration", "query": "what the editorial cartoon shows", "mood": "..."}}
+                    - a drawn satirical cartoon, never a realistic image; it is labelled AI-generated on the slide;
              otherwise {{}},
    "animation": one of {ANIMATIONS},
    "transition": "cut" or "fade",
@@ -131,7 +139,17 @@ Never fabricate quotations, numbers or events; if the material lacks a number, d
 One idea per scene. The last scene asks the viewer a real question.
 Vary the scenes: a deck where every scene is plain text is a failure. Whenever the material
 supports it use counter (a single figure), comparison (two values against each other), chart,
-timeline or list — but only with numbers that appear in the material."""
+timeline or list — but only with numbers that appear in the material.
+
+PICTURES. Most scenes should carry an image or a symbol. Prefer a symbol when the point is an act
+rather than a scene (a renaming, a signing, a name placed on something, two things weighed against
+each other) — a drawn mark states it more precisely than any photograph. Ask for a photo when a
+real place, person or document is the subject. Ask for an illustration only when the point is satire.
+
+THE FIRST SCENE decides whether anyone reads the rest. Make it a real claim in plain words that the
+later scenes actually support: the specific thing that happened and the tension in it. Do not write
+a teaser that withholds the answer ("nobody is talking about what this really does" is a failure).
+The first scene should carry a picture or a symbol."""
 
 
 # ---------------------------------------------------------------------------
@@ -246,6 +264,8 @@ def _apply_design(scenes: list[dict[str, Any]]) -> list[dict[str, Any]]:
         _promote_number(s)
         _auto_emphasis(s)
         s["role"] = role_for(s, i, total)
+        if (s.get("visual") or {}).get("want") in ("photo", "symbol", "illustration"):
+            continue  # imagery.add_imagery resolves it; don't overwrite the request
         if s["role"] in ("cover", "question", "closer") and s["visual_type"] == "text":
             s["visual_type"] = {"cover": "title", "question": "question", "closer": "text"}[s["role"]]
     return scenes
@@ -513,7 +533,13 @@ def quality_checks(db: Session, project: VideoProject) -> list[dict[str, str]]:
     checks.append({"check": "Platform fit", "status": "pass", "detail": "1080×1920 vertical with safe-zone margins."})
 
     imgs = [s for s in project.scenes or [] if s.get("visual_type") == "image"]
-    unattributed = [s for s in imgs if not (s.get("visual") or {}).get("source_label") and not (s.get("visual") or {}).get("generated") and not (s.get("visual") or {}).get("uploaded")]
+    def _attributed(s: dict[str, Any]) -> bool:
+        v = s.get("visual") or {}
+        # a fetched photo carries its licence in `credit`; generated and uploaded assets
+        # declare themselves; anything else is a picture we cannot account for
+        return bool(v.get("credit") or v.get("source_label") or v.get("generated") or v.get("uploaded"))
+
+    unattributed = [s for s in imgs if not _attributed(s)]
     if unattributed:
         checks.append({"check": "Asset provenance", "status": "fail", "detail": f"{len(unattributed)} image(s) without provenance (uploaded / generated / attributed)."})
     else:

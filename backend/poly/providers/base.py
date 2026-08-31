@@ -182,3 +182,47 @@ class NewsProvider(abc.ABC):
 
     @abc.abstractmethod
     def available(self) -> bool: ...
+
+
+# ---------------------------------------------------------------------------
+# Open-license picture search
+# ---------------------------------------------------------------------------
+@dataclass
+class ImageCandidate:
+    """A picture Poly may legally republish, with the provenance needed to credit it."""
+
+    url: str
+    title: str = ""
+    thumb_url: str = ""
+    source_page: str = ""
+    license: str = ""
+    license_url: str = ""
+    author: str = ""
+    width: int = 0
+    height: int = 0
+    provider: str = ""
+    mime: str = ""
+
+    @property
+    def credit(self) -> str:
+        bits = [b for b in (self.author.strip(), self.license.strip()) if b]
+        return " · ".join(bits) or self.license or ""
+
+
+class ImageSearchProvider(abc.ABC):
+    """Finds openly-licensed pictures. Public-internet retrieval: it receives only the query,
+    never private context, and is gated by `allow_internet_research`.
+
+    An implementation MUST return only images whose license permits republication, and MUST
+    populate `license` and `author` — an uncredited picture is not usable output.
+    """
+
+    name: str = "image_search"
+    locality: Locality = "cloud"
+    requires_key: bool = False
+
+    @abc.abstractmethod
+    def search(self, query: str, *, limit: int = 12) -> list[ImageCandidate]: ...
+
+    @abc.abstractmethod
+    def available(self) -> bool: ...

@@ -267,6 +267,23 @@ def faceless_variation_task(job_id: str, project_id: str, variation: str) -> Non
 
 
 @huey.task()
+def faceless_imagery_task(job_id: str, project_id: str) -> None:
+    from ..models import VideoProject
+    from ..services.imagery import add_imagery
+
+    def run(db, job, progress):
+        project = db.get(VideoProject, project_id)
+        if project is None:
+            raise ValueError("project not found")
+        progress(0.05, "Finding pictures")
+        add_imagery(db, project, progress=progress)
+        with_pictures = sum(1 for s in project.scenes or [] if (s.get("visual") or {}).get("path") or s.get("visual_type") == "symbol")
+        return {"project_id": project_id, "scenes_with_pictures": with_pictures}
+
+    _run_tracked(job_id, run)
+
+
+@huey.task()
 def detect_models_task(job_id: str) -> None:
     from ..providers.registry import detect_and_register
 
@@ -317,6 +334,7 @@ def enqueue(db, kind: str, payload: dict[str, Any] | None = None) -> Job:
         "faceless_generate": lambda: faceless_generate_task(job.id, payload["project_id"], payload.get("extra_instructions", "")),
         "faceless_render": lambda: faceless_render_task(job.id, payload["project_id"]),
         "faceless_variation": lambda: faceless_variation_task(job.id, payload["project_id"], payload["variation"]),
+        "faceless_imagery": lambda: faceless_imagery_task(job.id, payload["project_id"]),
     }
     if kind not in table:
         raise ValueError(f"unknown job kind {kind}")

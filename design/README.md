@@ -38,3 +38,29 @@ never matched. Counters keep an ASS pass, since a number counting up has to be d
 `sanitize` drops glyphs the font can't draw (arrows are drawn as shapes instead of tofu), and
 `fit` refuses any size at which a word would have to be split — the wrapping bug that used to
 run text off both edges of the frame.
+
+## Pictures
+
+`services/imagery.py` resolves a scene's visual intent into an actual picture, in a fixed
+order: a picture already chosen → the existing library → an openly-licensed photograph →
+a locally-generated editorial illustration → a symbolic mark. Two rules are not settings:
+
+1. **Only republishable licenses are downloaded.** `providers/image_search/` returns nothing
+   without a license and an author — public domain, CC0, CC BY and CC BY-SA only. NC and ND
+   are rejected, since a slide crops and tints what it shows. The license and photographer
+   are stored with the file and printed on the slide.
+2. **Generated pictures of real people are cartoons, and say so.** `illustration_prompt`
+   strips the photoreal vocabulary rather than balancing against it, the negative prompt
+   pushes the other way, and the renderer prints "AI-generated illustration" on any scene
+   built from one. A labelled photoreal fake still travels as evidence once it leaves the app,
+   so Poly does not make one.
+
+`services/symbols.py` draws the concept when no honest photograph exists: `rename` (old name
+struck through, new one stamped over it), `stamp`, `plaque`, `seal`, `scale`, `signature`.
+These need no network and carry no licensing risk, and for an act — a renaming, a signing, a
+name placed on something — they state the point more precisely than a photo of a man at a desk.
+`infer_symbol` proposes one from words already in the copy; it never invents a name or a figure.
+
+Pictures are placed by `treatment`: `full_bleed` (the picture becomes the frame, duotoned into
+the palette under a scrim, type set low over it — the cover treatment), `band` (inside the
+layout), `portrait`.

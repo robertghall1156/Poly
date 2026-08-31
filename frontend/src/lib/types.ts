@@ -795,6 +795,20 @@ export interface SceneVisual {
   items?: string[];
   [k: string]: unknown;
 }
+export interface ImageCandidate {
+  url: string;
+  thumb_url?: string;
+  title?: string;
+  source_page?: string;
+  /** always present — Poly only returns pictures that may be republished */
+  license: string;
+  license_url?: string;
+  author?: string;
+  width?: number;
+  height?: number;
+  provider?: string;
+  credit?: string;
+}
 export interface StudioScene {
   order?: number;
   duration: number;

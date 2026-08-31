@@ -40,8 +40,47 @@ from .design import (
     surface_for,
     wrap,
 )
+from .symbols import draw_symbol
 
 SCRATCH = ImageDraw.Draw(PILImage.new("RGB", (8, 8)))
+
+
+def is_full_bleed(scene: dict[str, Any]) -> bool:
+    """A picture used as the whole frame rather than an element inside it."""
+    v = scene.get("visual") or {}
+    return bool(str(v.get("treatment") or "") == "full_bleed" and v.get("path") and Path(str(v["path"])).exists())
+
+
+def _cover_crop(path: str, w: int, h: int) -> PILImage.Image:
+    with PILImage.open(path) as src:
+        src = src.convert("RGB")
+        scale = max(w / src.width, h / src.height)
+        resized = src.resize((max(1, int(src.width * scale)), max(1, int(src.height * scale))), PILImage.LANCZOS)
+    left = (resized.width - w) // 2
+    top = int((resized.height - h) * 0.35)  # faces sit above centre
+    return resized.crop((left, top, left + w, top + h))
+
+
+def _duotone(im: PILImage.Image, pal: Palette, *, strength: float = 1.0) -> PILImage.Image:
+    """Push a photograph into the brand's two-colour range so it can't fight the palette."""
+    toned = ImageOps.colorize(ImageOps.autocontrast(im.convert("L"), cutoff=1), black=shade(pal.ink, 0.55), white=shade(pal.paper, 1.0), mid=mix(pal.accent, pal.ink, 0.35))
+    return PILImage.blend(im, toned, max(0.0, min(1.0, strength)))
+
+
+def _full_bleed_surface(scene: dict[str, Any], pal: Palette, width: int, height: int) -> PILImage.Image:
+    """The picture as the frame, with a scrim heavy enough that type stays readable over it."""
+    v = scene.get("visual") or {}
+    img = _duotone(_cover_crop(str(v["path"]), width, height), pal, strength=float(v.get("duotone", 0.72)))
+    scrim = PILImage.new("RGBA", (1, height), (0, 0, 0, 0))
+    px = scrim.load()
+    ink = shade(pal.ink, 0.55)
+    for y in range(height):
+        t = y / max(1, height - 1)
+        # light veil throughout for the rails, deepening into the lower third for the headline
+        a = 0.22 + 0.68 * max(0.0, (t - 0.34) / 0.66) ** 1.5
+        px[0, y] = (*ink, int(255 * min(0.94, a)))
+    img.paste(scrim.resize((width, height)), (0, 0), scrim.resize((width, height)))
+    return img
 
 
 @dataclass
@@ -77,6 +116,7 @@ class Frame:
 
 @dataclass
 class Plan:
+    scene: dict[str, Any]
     role: str
     headline: str
     body: str
@@ -102,10 +142,11 @@ def _plan(scene: dict[str, Any], fr: Frame, role: str, index: int, total: int) -
     headline = clean_headline(sanitize(str(scene.get("on_screen_text") or ""))[0])
     body = sentence(sanitize(str(scene.get("subtext") or ""))[0])
     vt = str(scene.get("visual_type") or "text").lower()
-    has_visual = role in ("chart", "contrast", "timeline", "list", "image")
+    full_bleed = is_full_bleed(scene)
+    has_visual = (not full_bleed) and role in ("chart", "contrast", "timeline", "list", "image", "symbol")
 
     # --- headline sizing per role ---------------------------------------------
-    if role == "cover":
+    if role == "cover" or full_bleed:
         head_size, weight, leading, align, max_lines = int(122 * u), 800, 0.98, "left", 5
     elif role == "question":
         head_size, weight, leading, align, max_lines = int(96 * u), 800, 1.04, "center", 5
@@ -135,7 +176,7 @@ def _plan(scene: dict[str, Any], fr: Frame, role: str, index: int, total: int) -
     x = fr.margin
     visual_box: tuple[int, int, int, int] | None = None
 
-    if role == "cover":
+    if role == "cover" or full_bleed:
         total_h = head_h + gap + body_h
         y = fr.bottom - total_h - int(fr.h * 0.045)
         head_xy, body_xy = (x, y), (x, y + head_h + gap)
@@ -172,6 +213,7 @@ def _plan(scene: dict[str, Any], fr: Frame, role: str, index: int, total: int) -
         visual_box = (x, int(fr.h * 0.45), fr.w - fr.margin, int(fr.h * 0.66))
 
     return Plan(
+        scene=scene,
         role=role,
         headline=headline,
         body=body,
@@ -195,8 +237,11 @@ def compose_base(scene: dict[str, Any], brand: dict[str, Any], *, width: int, he
     pal = Palette.from_brand(brand)
     fr = Frame(width, height)
     role = role_for(scene, index, total)
-    surf = surface_for(scene, index, total, role)
-    img, base, dark = surface(pal, surf, width, height)
+    if is_full_bleed(scene):
+        img = _full_bleed_surface(scene, pal, width, height)
+        base, dark = shade(pal.ink, 0.55), True
+    else:
+        img, base, dark = surface(pal, surface_for(scene, index, total, role), width, height)
     ink = ink_for(pal, base, dark)
     draw = ImageDraw.Draw(img)
     u = fr.unit
@@ -218,7 +263,10 @@ def _decorate(draw, img, fr: Frame, plan: Plan, ink: Ink, pal: Palette, base, da
     role = plan.role
     x, y = plan.head_xy
 
-    if role == "cover":
+    if is_full_bleed(plan.scene):
+        draw.rectangle([(x, y - int(46 * u)), (x + int(150 * u), y - int(46 * u) + int(9 * u))], fill=ink.highlight)
+        draw.rectangle([(0, fr.h - int(14 * u)), (fr.w, fr.h)], fill=pal.highlight)
+    elif role == "cover":
         # oversized index mark bleeding off the right edge — the magazine-cover move
         mark = font(int(760 * u), 800)
         label = f"{index + 1:02d}"
@@ -267,9 +315,31 @@ def _footer(draw, fr: Frame, ink: Ink, scene: dict, index: int, total: int, role
     y = fr.h - int(fr.h * 0.052)
     if role != "cover":
         draw.line([(fr.margin, y - int(30 * u)), (fr.w - fr.margin, y - int(30 * u))], fill=ink.rule, width=max(1, int(2 * u)))
-    src = str(scene.get("source") or (scene.get("visual") or {}).get("source") or "")
+    visual = scene.get("visual") or {}
+    bits = []
+    if visual.get("generated"):
+        bits.append("AI-generated illustration")   # never optional: it is not a photograph
+    elif visual.get("credit"):
+        bits.append(f"Photo: {visual['credit']}")
+    src = str(scene.get("source") or visual.get("source") or "")
     if src and role != "cover":
-        small_caps(draw, (fr.margin, y), f"Source: {src}"[:48], int(23 * u), ink.faint)
+        bits.append(f"Source: {src}")
+    if bits:
+        rail_w = ((30 + 9) * u * total + 40 * u) if total > 1 else 0
+        avail = fr.w - 2 * fr.margin - rail_w
+        size = int(21 * u)
+        f = font(size, 700)
+
+        def too_wide(s: str) -> bool:
+            return draw.textlength(s.upper(), font=f) + size * 0.14 * max(0, len(s) - 1) > avail
+
+        # drop whole items before cutting words — "Photo: … · S…" helps nobody
+        while len(bits) > 1 and too_wide(" · ".join(bits)):
+            bits.pop()
+        text = " · ".join(bits)
+        while text and too_wide(text):
+            text = text[:-2].rstrip(" ·")
+        small_caps(draw, (fr.margin, y), text, size, ink.faint)
     footer, arrow = sanitize(str((scene.get("visual") or {}).get("footer") or ""))
     if footer:
         fw = small_caps(draw, (fr.margin, y - int(34 * u)), footer[:40], int(24 * u), ink.highlight)
@@ -307,6 +377,8 @@ def _visual(draw, img, box, scene: dict, ink: Ink, pal: Palette, u: float, role:
         _list(draw, box, visual, ink, u)
     elif role == "image" and visual.get("path") and Path(str(visual["path"])).exists():
         _image(img, draw, box, visual, ink, pal, u, dark)
+    elif role == "symbol":
+        draw_symbol(img, box, visual, ink, pal, u)
 
 
 def _pack(box, n: int, max_row: float) -> tuple[float, float]:
@@ -459,8 +531,6 @@ def _image(img, draw, box, visual, ink: Ink, pal: Palette, u: float, dark: bool)
     duo = ImageOps.colorize(ImageOps.autocontrast(crop.convert("L")), black=shade(pal.ink, 0.75), white=shade(pal.paper, 1.0), mid=pal.accent)
     img.paste(duo, (x0, y0))
     draw.rectangle([(x0, y0), (x1, y1)], outline=ink.rule, width=max(1, int(2 * u)))
-    if visual.get("generated"):
-        small_caps(draw, (x0, y1 + int(14 * u)), "AI-generated image", int(22 * u), ink.faint)
 
 
 # ---------------------------------------------------------------------------

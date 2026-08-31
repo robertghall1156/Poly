@@ -8,6 +8,7 @@
   poly import-principles  import knowledge/political_operating_system.md
   poly export-principles  export principles to the markdown file
   poly reembed            re-embed content with the current best local embedding model
+  poly images "<query>"   check open-license picture search from this machine
 """
 from __future__ import annotations
 
@@ -29,6 +30,9 @@ def main(argv: list[str] | None = None) -> int:
     sub.add_parser("import-principles")
     sub.add_parser("export-principles")
     sub.add_parser("reembed")
+    im = sub.add_parser("images")
+    im.add_argument("query")
+    im.add_argument("--limit", type=int, default=6)
     args = parser.parse_args(argv)
 
     from .config import get_settings
@@ -60,6 +64,26 @@ def main(argv: list[str] | None = None) -> int:
         from .main import startup_tasks
 
         print(json.dumps(startup_tasks(), indent=2, default=str))
+        return 0
+    if args.cmd == "images":
+        from .providers.base import PrivacyViolation, ProviderError
+        from .services.imagery import search
+
+        try:
+            with session_scope() as db:
+                results = search(db, args.query, limit=args.limit)
+        except PrivacyViolation as e:
+            print(f"Blocked by your privacy settings: {e}\nTurn on Allow internet research in Settings → Privacy.")
+            return 2
+        except ProviderError as e:
+            print(f"Could not reach the picture sources: {e}\nPoly can still draw symbolic graphics without a network.")
+            return 2
+        if not results:
+            print("No openly-licensed pictures found for that query.")
+            return 1
+        for r in results:
+            print(f"- {r['title'][:60]:60} {r['license']:>18}  {r['author'][:28]}")
+            print(f"  {r['url']}")
         return 0
     if args.cmd == "detect":
         from .providers.registry import detect_and_register

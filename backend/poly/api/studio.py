@@ -13,9 +13,9 @@ from sqlalchemy.orm import Session
 from ..db import get_db
 from ..jobs.tasks import enqueue
 from ..models import FACELESS_FORMATS, ContentItem, VideoProject
-from ..providers.base import ProviderError
+from ..providers.base import PrivacyViolation, ProviderError
 from ..providers.tts.local import tts_status
-from ..services import faceless, memes
+from ..services import faceless, imagery, memes
 from ..services import settings as settings_service
 from ..services.render_video import render_scene_preview
 from .common import d, get_or_404
@@ -155,6 +155,62 @@ def undo_scenes(pid: str, db: Session = Depends(get_db)) -> dict[str, Any]:
 
 class VariationIn(BaseModel):
     variation: str
+
+
+class ImageryIn(BaseModel):
+    background: bool = True
+
+
+@router.post("/projects/{pid}/imagery")
+def add_pictures(pid: str, body: ImageryIn | None = None, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Give the scenes pictures: licensed photos, drawn marks, or a local illustration."""
+    get_or_404(db, VideoProject, pid)
+    return d(enqueue(db, "faceless_imagery", {"project_id": pid}))
+
+
+@router.get("/images/search")
+def images_search(q: str, limit: int = 12, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Openly-licensed pictures only — everything returned may be republished with credit."""
+    try:
+        return {"results": imagery.search(db, q, limit=max(1, min(30, limit)))}
+    except PrivacyViolation as e:
+        raise HTTPException(403, str(e)) from e
+    except ProviderError as e:
+        raise HTTPException(502, str(e)) from e
+
+
+class AttachIn(BaseModel):
+    scene_index: int
+    candidate: dict[str, Any]
+    treatment: str = "band"
+
+
+@router.post("/projects/{pid}/scenes/{idx}/image")
+def attach_image(pid: str, idx: int, body: AttachIn, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Attach a chosen picture to one scene, with its licence recorded."""
+    p = get_or_404(db, VideoProject, pid)
+    scenes = [dict(s) for s in (p.scenes or [])]
+    if not 0 <= idx < len(scenes):
+        raise HTTPException(404, "scene not found")
+    try:
+        row = imagery.fetch(db, body.candidate, content_item_id=p.content_item_id)
+    except PrivacyViolation as e:
+        raise HTTPException(403, str(e)) from e
+    except (ValueError, OSError) as e:
+        raise HTTPException(400, str(e)) from e
+    scenes[idx]["visual_type"] = "image"
+    scenes[idx]["role"] = "image"
+    scenes[idx]["visual"] = {
+        **(scenes[idx].get("visual") or {}),
+        "path": row.path, "image_id": row.id, "credit": imagery.credit_line(row),
+        "source_page": (row.params or {}).get("source_page", ""), "generated": bool(row.is_generated),
+        "treatment": body.treatment if body.treatment in imagery.TREATMENTS else "band",
+    }
+    p.previous_scenes = p.scenes or []
+    p.scenes = scenes
+    p.render_status = "none"
+    db.commit()
+    return _project(db, p)
 
 
 @router.post("/projects/{pid}/variation")
