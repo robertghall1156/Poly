@@ -264,34 +264,48 @@ def infer_symbol(scene: dict[str, Any], context: str = "") -> dict[str, Any] | N
 
 
 def deck_subjects(db: Session, project: VideoProject) -> list[Subject]:
-    """Who and what the reporting behind this deck is about.
+    """Who and what this deck is about, in order.
 
-    A deck is often written without a story attached — from a principle, a brief, or an idea —
-    and its own copy is far too thin to rank subjects from: one mention of a name in a title
-    is not evidence of anything. So the coverage is found in the news already ingested,
-    matched on the deck's own distinctive names.
+    Three sources, deliberately unequal. The title says what the deck is *about*; the slide
+    copy says what it *mentions*; the coverage only supplies depth. Treating them equally is
+    how a deck titled "Trump's Focus" ends up led by Iran — one slide mentions the Iran war,
+    and the news happens to hold eighteen Iran headlines.
     """
     item = project.content_item
-    texts: list[str] = [item.title or "", project.caption or ""]
-    texts += [f"{s.get('on_screen_text', '')}. {s.get('subtext', '')}" for s in (project.scenes or [])]
+    title_texts = [item.title or ""]
+    deck_texts = [project.caption or ""] + [f"{s.get('on_screen_text', '')}. {s.get('subtext', '')}" for s in (project.scenes or [])]
 
     story = item.story if getattr(item, "story_id", None) else None
     if story is not None:
-        texts += [story.title or "", story.summary or "", story.why_it_matters or ""]
-        texts += [a.title or "" for a in getattr(story, "articles", [])[:20]]
+        coverage = [story.title or "", story.summary or "", story.why_it_matters or ""]
+        coverage += [a.title or "" for a in getattr(story, "articles", [])[:20]]
     else:
-        texts += _related_coverage(db, texts)
-    return extract([x for x in texts if x])
+        # No story attached — find the reporting by what the title names, not what a slide
+        # happens to mention, or the search drifts to whatever is loudest in the news.
+        coverage = _related_coverage(db, title_texts) or _related_coverage(db, title_texts + deck_texts)
+
+    merged: dict[str, Subject] = {}
+    for texts, weight, owned in ((title_texts, 12, True), (deck_texts, 3, True), (coverage, 1, False)):
+        for subject in extract([x for x in texts if x], limit=12):
+            key = subject.name.lower()
+            existing = merged.get(key)
+            if existing is None:
+                subject.weight *= weight
+                subject.from_deck = owned
+                merged[key] = subject
+            else:
+                existing.weight += subject.weight * weight
+                existing.from_deck = existing.from_deck or owned
+    return sorted(merged.values(), key=lambda s: (-s.weight, -len(s.name)))[:8]
 
 
 def _related_coverage(db: Session, texts: list[str], *, limit: int = 40) -> list[str]:
-    """Headlines from the ingested news that name the same things this deck does."""
-    seeds = {s.name for s in extract(texts, limit=4)}
+    """Headlines from the ingested news that name the same things these texts do."""
+    seeds = {s.name for s in extract([x for x in texts if x], limit=3)}
     if not seeds:
         return []
     rows = db.execute(select(Article.title).order_by(Article.published_at.desc()).limit(600)).scalars().all()
-    hits = [t for t in rows if t and any(seed.lower() in t.lower() for seed in seeds)]
-    return hits[:limit]
+    return [t for t in rows if t and any(seed.lower() in t.lower() for seed in seeds)][:limit]
 
 
 def plan_scene_visual(scene: dict[str, Any], context: str = "", cast: list[Subject] | None = None) -> dict[str, Any]:

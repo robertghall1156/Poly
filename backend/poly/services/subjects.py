@@ -29,6 +29,15 @@ NOISE = {
     "americans", "american", "people", "voters", "critics", "supporters", "sources", "officials",
     "president", "senator", "congressman", "governor", "mr", "ms", "mrs", "dr",
 }
+# Bylines and outlets. They appear in almost every story and are never what it is about —
+# without this, "WHAT DID SOURCES SAY?" searches for a newspaper's head office.
+PUBLICATIONS = {
+    "reuters", "axios", "npr", "pbs", "wsj", "politico", "nbc", "cbs", "abc", "cnn", "bbc",
+    "bloomberg", "guardian", "newsweek", "vox", "semafor", "punchbowl", "msnbc", "fox",
+    "washington post", "new york times", "wall street journal", "the hill", "associated press",
+    "los angeles times", "usa today", "financial times", "the atlantic", "new yorker",
+    "pbs news hour", "npr topics", "fox news", "news hour", "hill", "post", "times", "journal", "nyt", "wapo", "ap", "afp",
+}
 # Words that make a phrase a category rather than a thing.
 _ABSTRACT = {
     "focus", "legacy", "leadership", "priorities", "perspective", "context", "implication",
@@ -50,13 +59,20 @@ _HEADLINE_VERBS = {
 
 # A picture of a person is usually wanted in one of a few framings. The frame is appended to
 # the name so the archive returns something usable rather than a passport crop.
+# Only actions make a usable search. "Trump building sign" finds nothing; the concrete noun
+# from the scene (thing_in) is what turns a name into a specific picture.
 FRAMES = {
     "portrait": "",
+    "building": "",
+    "crowd": "",
     "speaking": "speaking",
     "signing": "signing executive order",
-    "building": "building sign",
-    "crowd": "rally crowd",
 }
+
+
+def _has_word(haystack: str, needle: str) -> bool:
+    """Substring matching turns 'Americans' into a mention of 'Lake America'."""
+    return re.search(rf"(?<!\w){re.escape(needle)}(?!\w)", haystack) is not None
 
 
 @dataclass
@@ -64,6 +80,9 @@ class Subject:
     name: str
     weight: int = 1
     tokens: list[str] = field(default_factory=list)
+    # True when the deck's own words name this. Coverage is for ranking, not for deciding what
+    # a slide is about — otherwise a paper quoted in one headline becomes a slide's subject.
+    from_deck: bool = False
 
     def query(self, frame: str = "portrait", thing: str = "") -> str:
         """The search that will actually be run. A concrete noun from the scene beats a
@@ -79,13 +98,14 @@ class Subject:
         """Length of the longest part of this name that appears — used to pick which subject
         a scene is about when several share a word ("Lake Ontario" vs "Lake America")."""
         low = (text or "").lower()
-        return max((len(t) for t in self.tokens if t in low), default=0)
+        return max((len(t) for t in self.tokens if _has_word(low, t)), default=0)
 
     def named_by(self, text: str) -> bool:
-        """Strict: every significant word of the name is present. A search result must clear
-        this — sharing one word ("Ontario") is how a church in Toronto illustrates Congress."""
+        """Strict: every significant word of the name is present, as a word. A search result
+        must clear this — sharing one word ("Ontario") is how a church in Toronto illustrates
+        Congress, and matching inside a word is how "Americans" becomes "Lake America"."""
         low = (text or "").lower()
-        return bool(self.words) and all(w in low for w in self.words)
+        return bool(self.words) and all(_has_word(low, w) for w in self.words)
 
     @property
     def is_place(self) -> bool:
@@ -93,8 +113,16 @@ class Subject:
 
 
 def _clean(phrase: str) -> str:
-    phrase = _POSSESSIVE.sub("", phrase).strip(" .,:;—-'’\"“”")
+    # A possessive ends the name: "Trump's Focus" is Trump and a thing he has, not a person
+    # called Trump Focus — which then gets thrown out as an abstraction, taking the real
+    # subject of the deck with it.
+    possessive = _POSSESSIVE.search(phrase)
+    if possessive:
+        phrase = phrase[: possessive.start()]
+    phrase = phrase.strip(" .,:;—-'’\"“”")
     words = phrase.split()
+    while words and words[0].lower() in ("a", "an", "the"):
+        words = words[1:]
     cut = next((i for i, w in enumerate(words) if w.lower().strip(".,") in _HEADLINE_VERBS), None)
     if cut is not None:
         words = words[:cut]
@@ -111,11 +139,22 @@ def _is_shouting(chunk: str) -> bool:
     return len(letters) > 6 and not any(c.islower() for c in letters)
 
 
+_CONTRACTION = re.compile(r"^\w{1,4}[’'](ll|ve|re|d|m|s|t)$", re.I)
+# "APOLogy" — a model half-uppercasing a word. It is a typo, not a name.
+_MANGLED = re.compile(r"^[A-Z]{2,}[a-z]")
+
+
 def _is_nameable(phrase: str) -> bool:
     words = phrase.split()
     if not words:
         return False
+    if phrase.lower() in PUBLICATIONS:
+        return False
     low = [w.lower().strip(".,") for w in words]
+    if any(_CONTRACTION.match(w) for w in words):
+        return False  # "I'll", "We've" — capitalised, but not names
+    if any(_MANGLED.match(w) for w in words):
+        return False
     if all(w in NOISE for w in low):
         return False
     if len(words) == 1 and (low[0] in NOISE or low[0] in _ABSTRACT or len(low[0]) < 3):
@@ -193,8 +232,17 @@ def for_scene(scene_text: str, cast: list[Subject]) -> Subject | None:
     principal = lead(cast)
     if _PRONOUN.search(scene_text or "") and principal is not None and not principal.is_place:
         return principal
-    scored = [(s, s.mentioned_in(scene_text)) for s in cast]
-    hits = [(s, m) for s, m in scored if m]
+    hits = [(s, m) for s, m in ((s, s.mentioned_in(scene_text)) for s in cast) if m]
+    # Prefer names the deck itself uses. A subject that exists only because it appeared in a
+    # related headline is background, not what this slide is about.
+    owned = [pair for pair in hits if pair[0].from_deck]
+    hits = owned or hits
+    # A name mentioned once in passing is not what the slide is about. Requiring a quarter of
+    # the lead's weight keeps genuine secondary subjects and drops the incidental ones — the
+    # paper that reported it, the adjective in front of a city.
+    if principal is not None:
+        strong = [pair for pair in hits if pair[0].weight * 4 >= principal.weight]
+        hits = strong or []
     if hits:
         return max(hits, key=lambda pair: (pair[1], pair[0].weight))[0]
     return principal
