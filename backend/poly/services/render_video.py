@@ -382,7 +382,7 @@ def render_scene_preview(db: Session, project: VideoProject, index: int, *, scal
         label = f"{v.get('prefix', '')}{_abbrev(float(v.get('to', 0) or 0))}{v.get('suffix', '')}"
         cf = _font(150)
         draw.text(((W - draw.textlength(label, font=cf)) / 2, H * 0.52 - 75), label, font=cf, fill=_hex(brand.get("highlight", "#C89B3C")))
-    out = get_settings().cache_path / f"scene-{project.id}-{index}.png"
+    out = get_settings().cache_path / f"scene-{project.id}-{index}-{int(scale * 100)}.png"
     if scale != 1.0:
         img = img.resize((int(W * scale), int(H * scale)))
     img.save(out)

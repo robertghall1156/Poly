@@ -10,11 +10,11 @@ import { cn, humanize } from "@/lib/utils";
 const TYPE_ORDER = ["story", "principle", "content_item", "position_brief", "article", "research_note", "video", "transcript_segment", "clip", "book_note"];
 const TYPE_LABEL: Record<string, string> = {
   story: "Stories",
-  principle: "Principles",
-  content_item: "Content",
-  position_brief: "Position briefs",
+  principle: "What I believe",
+  content_item: "Drafts",
+  position_brief: "My positions",
   article: "Articles",
-  research_note: "Research notes",
+  research_note: "Research",
   video: "Videos",
   transcript_segment: "Transcript segments",
   clip: "Clips",
@@ -25,25 +25,25 @@ export function hitHref(h: SearchHit): string {
   const m = h.meta ?? {};
   switch (h.entity_type) {
     case "story":
-      return `/stories/${h.entity_id}`;
+      return `/discover/stories/${h.entity_id}`;
     case "principle":
-      return `/principles/${h.entity_id}`;
+      return `/think/beliefs/${h.entity_id}`;
     case "content_item":
-      return `/content/${h.entity_id}`;
+      return `/library/content/${h.entity_id}`;
     case "position_brief":
-      return `/think/briefs/${h.entity_id}`;
+      return `/think/positions/${h.entity_id}`;
     case "article":
-      return m.story_id ? `/stories/${m.story_id}` : "/stories";
+      return m.story_id ? `/discover/stories/${m.story_id}` : "/discover?tab=all";
     case "research_note":
-      return m.story_id ? `/stories/${m.story_id}` : m.principle_id ? `/principles/${m.principle_id}` : "/research";
+      return m.story_id ? `/discover/stories/${m.story_id}` : m.principle_id ? `/think/beliefs/${m.principle_id}` : "/discover?tab=research";
     case "video":
-      return `/videos/${h.entity_id}`;
+      return `/library/videos/${h.entity_id}`;
     case "transcript_segment":
-      return m.video_id ? `/videos/${m.video_id}?t=${m.start ?? 0}` : "/videos";
+      return m.video_id ? `/library/videos/${m.video_id}?t=${m.start ?? 0}` : "/library?tab=videos";
     case "clip":
-      return m.video_id ? `/videos/${m.video_id}#clip-${h.entity_id}` : "/videos";
+      return m.video_id ? `/library/videos/${m.video_id}#clip-${h.entity_id}` : "/library?tab=videos";
     case "book_note":
-      return "/book";
+      return "/library?tab=book";
     default:
       return "/";
   }
@@ -135,7 +135,7 @@ export function SearchPalette({ open, onClose }: { open: boolean; onClose: () =>
                 go(flat[active]);
               } else if (e.key === "Escape") onClose();
             }}
-            placeholder="Search everything (hybrid keyword + semantic)"
+            placeholder="Search everything"
             className="h-11 flex-1 bg-transparent text-sm outline-none placeholder:text-zinc-400"
           />
           {loading ? <Loader2 className="h-4 w-4 animate-spin text-zinc-400" /> : null}

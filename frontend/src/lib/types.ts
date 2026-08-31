@@ -776,3 +776,119 @@ export interface Dashboard {
   }[];
   privacy: Privacy;
 }
+
+// ---- studio (faceless videos, carousels, memes) ----
+export interface SceneVisual {
+  labels?: string[];
+  values?: number[];
+  unit?: string;
+  title?: string;
+  source?: string;
+  from?: number;
+  to?: number;
+  prefix?: string;
+  suffix?: string;
+  label?: string;
+  left?: { label?: string; value?: string };
+  right?: { label?: string; value?: string };
+  points?: { label?: string; text?: string }[];
+  items?: string[];
+  [k: string]: unknown;
+}
+export interface StudioScene {
+  order?: number;
+  duration: number;
+  narration: string;
+  on_screen_text: string;
+  subtext: string;
+  visual_type: string;
+  visual: SceneVisual;
+  animation: string;
+  transition?: string;
+  background: string;
+  emphasis: string[];
+  source: string;
+  [k: string]: unknown;
+}
+export interface StudioSource {
+  label?: string;
+  url?: string;
+  [k: string]: unknown;
+}
+export interface StudioProject {
+  id: string;
+  content_item_id: string;
+  kind: "faceless_video" | "carousel" | string;
+  format: string;
+  target_seconds: number;
+  platform: string;
+  voice_mode: "none" | "tts" | string;
+  tts_voice: string;
+  music_path: string;
+  music_recommendation: string;
+  scenes: StudioScene[];
+  previous_scenes: StudioScene[];
+  sources: StudioSource[];
+  caption: string;
+  hashtags: string[];
+  brand_overrides: Record<string, unknown>;
+  render_status: "none" | "queued" | "rendering" | "done" | "failed" | string;
+  render_path: string;
+  render_error: string | null;
+  generation_meta: Record<string, unknown>;
+  created_at?: string;
+  updated_at?: string;
+  // enriched by the API
+  title: string;
+  status: string;
+  fact_check_status: string;
+  content_item: { id: string; title: string; status: string; format: string; approved_at: string | null };
+  total_seconds: number;
+  formats: Record<string, string>;
+}
+export interface StudioFormatDef {
+  id: string;
+  label: string;
+  default_seconds: number;
+}
+export interface TtsStatus {
+  available: boolean;
+  engine?: string;
+  detail?: string;
+  [k: string]: unknown;
+}
+export interface StudioFormats {
+  formats: StudioFormatDef[];
+  lengths: number[];
+  variations: string[];
+  meme_templates: string[];
+  tts: TtsStatus;
+}
+export interface QualityCheck {
+  check: string;
+  status: "pass" | "warn" | "fail" | string;
+  detail: string;
+}
+export interface StudioSourceIn {
+  story_id?: string | null;
+  brief_id?: string | null;
+  principle_id?: string | null;
+  research_note_id?: string | null;
+  video_id?: string | null;
+  idea?: string;
+}
+export interface MemeConcept {
+  template: string;
+  concept?: string;
+  visual?: string;
+  top_text: string;
+  bottom_text: string;
+  caption: string;
+  why_it_works?: string;
+  humor_type?: string;
+  [k: string]: unknown;
+}
+export interface MemeRenderResult extends ImageRecord {
+  content_item_id: string | null;
+  file_url: string;
+}

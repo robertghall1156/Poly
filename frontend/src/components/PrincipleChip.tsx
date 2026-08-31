@@ -12,7 +12,7 @@ const REL_STYLE: Record<string, string> = {
 export function PrincipleChip({ p }: { p: StoryPrincipleRef }) {
   return (
     <Link
-      href={`/principles/${p.id}`}
+      href={`/think/beliefs/${p.id}`}
       title={p.note || `${p.relation} · strength ${(p.strength * 100).toFixed(0)}%`}
       className={cn("inline-flex max-w-full items-center gap-1 rounded-full border px-2 py-0.5 text-[11px] hover:opacity-80", REL_STYLE[p.relation] ?? "border-accent/30 bg-accent-soft text-[#0f6f74]")}
     >

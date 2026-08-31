@@ -67,7 +67,7 @@ export default function AnalyticsPage() {
                   {items.map((i) => (
                     <TR key={i.id}>
                       <TD>
-                        <Link href={`/content/${i.id}`} className="font-medium text-zinc-900 hover:text-accent-strong">
+                        <Link href={`/library/content/${i.id}`} className="font-medium text-zinc-900 hover:text-accent-strong">
                           {i.title}
                         </Link>
                         <div className="text-[11px] text-zinc-400">

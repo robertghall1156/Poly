@@ -80,6 +80,35 @@ export function humanize(s?: string | null): string {
   return s.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
 }
 
+/** Plain-language, Title Case labels for pipeline and workflow statuses. */
+const STATUS_LABEL: Record<string, string> = {
+  IDEA: "Idea",
+  RESEARCHING: "Researching",
+  POSITION_DEVELOPED: "Position developed",
+  SCRIPTING: "Scripting",
+  RECORDED: "Recorded",
+  EDITING: "Editing",
+  READY: "Ready",
+  PUBLISHED: "Published",
+  draft: "Draft",
+  approved: "Approved",
+  provisional: "Still forming",
+  established: "Settled",
+  retired: "Retired",
+  active: "In progress",
+  completed: "Completed",
+  abandoned: "Set aside",
+  not_run: "Not checked yet",
+  pending: "Being checked",
+  fact_checked: "Facts checked",
+  overridden: "Approved with a note",
+};
+
+export function labelStatus(s?: string | null): string {
+  if (!s) return "";
+  return STATUS_LABEL[s] ?? (s === s.toUpperCase() ? humanize(s.toLowerCase()) : humanize(s));
+}
+
 export function labelFormat(s?: string | null): string {
   if (!s) return "";
   const map: Record<string, string> = {

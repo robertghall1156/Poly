@@ -6,7 +6,7 @@ import { DndContext, DragOverlay, PointerSensor, useDraggable, useDroppable, use
 import { api, ApiError } from "@/lib/api";
 import { useApi } from "@/lib/hooks";
 import type { Board, BoardCard } from "@/lib/types";
-import { cn, fmtDate, labelFormat } from "@/lib/utils";
+import { cn, fmtDate, labelFormat, labelStatus } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -65,7 +65,7 @@ export default function CalendarPage() {
 
   return (
     <div>
-      <PageHeader title="Calendar" description="The content pipeline. Drag cards between columns; READY and PUBLISHED are gated by fact check." />
+      <PageHeader title="Calendar" description="Your pipeline from idea to published. Drag cards between stages; Ready and Published require the facts to check out." />
       <ErrorNotice error={board.error ?? error} className="mb-3" />
       {board.loading ? <ListSkeleton rows={2} /> : null}
       {board.data ? (
@@ -88,12 +88,12 @@ export default function CalendarPage() {
             {upcoming.map((c) => (
               <div key={c.id} className="flex items-center gap-3 border-b border-zinc-200 px-3 py-1.5 text-[13px] last:border-b-0">
                 <span className="w-24 font-mono text-[11px] text-zinc-500">{fmtDate(c.publish_date)}</span>
-                <Link href={`/content/${c.id}`} className="min-w-0 flex-1 truncate font-medium text-zinc-900 hover:text-accent-strong">
+                <Link href={`/library/content/${c.id}`} className="min-w-0 flex-1 truncate font-medium text-zinc-900 hover:text-accent-strong">
                   {c.title}
                 </Link>
                 <span className="text-[11px] text-zinc-500">{labelFormat(c.format)}</span>
                 {c.platform ? <Badge variant="outline">{c.platform}</Badge> : null}
-                <Badge>{c.status.replace(/_/g, " ")}</Badge>
+                <Badge>{labelStatus(c.status)}</Badge>
               </div>
             ))}
           </div>
@@ -103,14 +103,14 @@ export default function CalendarPage() {
       <Dialog
         open={!!gate}
         onClose={() => setGate(null)}
-        title="Fact-check gate"
+        title="Hold on — facts first"
         footer={
           <>
             <Button variant="ghost" onClick={() => setGate(null)}>
               Cancel
             </Button>
             <Button variant="warn" disabled={!reason.trim()} onClick={() => gate && move(gate.card, gate.status, reason.trim())}>
-              Override with reason
+              Approve with a note
             </Button>
           </>
         }
@@ -118,16 +118,16 @@ export default function CalendarPage() {
         {gate ? (
           <div className="space-y-3">
             <p className="text-[13px] text-zinc-800">
-              “{gate.card.title}” cannot move to {gate.status.replace(/_/g, " ")}:
+              “{gate.card.title}” cannot move to {labelStatus(gate.status)} yet:
             </p>
             <p className="rounded border border-warn/50 bg-warn-soft p-2 text-xs text-[#9a3a1c]">{gate.message}</p>
-            <Field label="Override reason" hint="recorded on the item">
+            <Field label="Your note" hint="recorded on the draft">
               <Input value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
             </Field>
             <p className="text-xs text-zinc-500">
               Prefer resolving the claims on the{" "}
-              <Link href={`/content/${gate.card.id}`} className="text-accent-strong hover:underline">
-                item’s Fact check tab
+              <Link href={`/library/content/${gate.card.id}`} className="text-accent-strong hover:underline">
+                draft’s Fact check tab
               </Link>
               .
             </p>
@@ -144,7 +144,7 @@ function Column({ id, cards }: { id: string; cards: BoardCard[] }) {
   return (
     <div ref={setNodeRef} className={cn("flex w-52 shrink-0 flex-col rounded-md border bg-zinc-50 lg:w-auto lg:min-w-0 lg:flex-1", isOver ? "border-accent bg-accent-soft/40" : "border-zinc-200")}>
       <div className="flex items-center gap-1.5 border-b border-zinc-200 px-2.5 py-1.5">
-        <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-600">{id.replace(/_/g, " ")}</span>
+        <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-600">{labelStatus(id)}</span>
         <span className="text-[11px] text-zinc-400">{cards.length}</span>
         {gated ? <span className="ml-auto text-[10px] uppercase text-[#b3401f]">gated</span> : null}
       </div>
@@ -171,7 +171,7 @@ function CardView({ card, dragging }: { card: BoardCard; dragging?: boolean }) {
     <div className={cn("cursor-grab rounded border border-zinc-200 bg-white px-2 py-1.5 shadow-sm", dragging && "rotate-1 shadow-lg")}>
       <div className="flex items-start gap-1.5">
         <FactCheckDot status={card.fact_check_status} className="mt-1.5 shrink-0" />
-        <Link href={`/content/${card.id}`} onClick={(e) => e.stopPropagation()} className="line-clamp-2 text-[12.5px] font-medium leading-snug text-zinc-900 hover:text-accent-strong">
+        <Link href={`/library/content/${card.id}`} onClick={(e) => e.stopPropagation()} className="line-clamp-2 text-[12.5px] font-medium leading-snug text-zinc-900 hover:text-accent-strong">
           {card.title}
         </Link>
       </div>

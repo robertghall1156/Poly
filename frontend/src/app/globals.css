@@ -1,18 +1,30 @@
 @import "tailwindcss";
 
 :root {
-  --background: #fafafa;
-  --foreground: #18181b;
-  --accent: #1eadb4;
+  /* Brand tokens — overridden at runtime from Settings → Brand */
+  --brand-primary: #102a43;
+  --brand-accent: #0f766e;
+  --brand-secondary: #52667a;
+  --brand-bg: #f8f9fa;
+  --brand-highlight: #c89b3c;
+
+  --background: var(--brand-bg);
+  --foreground: #1b2733;
+  --accent: var(--brand-accent);
   --warn: #f46543;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --color-accent: #1eadb4;
-  --color-accent-strong: #178f95;
-  --color-accent-soft: #e6f6f7;
+  --color-brand: var(--brand-primary);
+  --color-brand-soft: color-mix(in srgb, var(--brand-primary) 7%, white);
+  --color-accent: var(--brand-accent);
+  --color-accent-strong: color-mix(in srgb, var(--brand-accent) 88%, black);
+  --color-accent-soft: color-mix(in srgb, var(--brand-accent) 9%, white);
+  --color-highlight: var(--brand-highlight);
+  --color-highlight-soft: color-mix(in srgb, var(--brand-highlight) 14%, white);
+  --color-secondary: var(--brand-secondary);
   --color-warn: #f46543;
   --color-warn-soft: #fdeee9;
   --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
@@ -36,11 +48,11 @@ body {
 }
 
 ::selection {
-  background: #cdeff1;
+  background: color-mix(in srgb, var(--brand-accent) 18%, white);
 }
 
 input[type="range"] {
-  accent-color: #1eadb4;
+  accent-color: var(--brand-accent);
 }
 
 .prose-plain p + p {

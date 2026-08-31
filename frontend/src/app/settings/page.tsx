@@ -12,8 +12,10 @@ import { LocalAITab } from "@/components/settings/LocalAITab";
 import { PrivacyTab } from "@/components/settings/PrivacyTab";
 import { ContentTab, GithubTab, KeysTab, MediaTab, NewsTab } from "@/components/settings/SimpleTabs";
 import { JobsTab } from "@/components/settings/JobsTab";
+import { BrandTab } from "@/components/settings/BrandTab";
 
 const TABS = [
+  { id: "brand", label: "Brand" },
   { id: "local-ai", label: "Local AI" },
   { id: "privacy", label: "Privacy & Network" },
   { id: "news", label: "News" },
@@ -44,6 +46,7 @@ function SettingsInner() {
       <Tabs tabs={TABS} value={tab} onChange={(id) => router.replace(`/settings?tab=${id}`)} className="mb-4" />
       <ErrorNotice error={settings.error} className="mb-3" />
       {settings.loading && !s ? <ListSkeleton /> : null}
+      {tab === "brand" ? <BrandTab settings={s} onChanged={() => settings.reload()} /> : null}
       {tab === "local-ai" ? <LocalAITab settings={s} /> : null}
       {tab === "privacy" ? <PrivacyTab settings={s} onChanged={() => settings.reload()} /> : null}
       {s && tab === "news" ? <NewsTab settings={s} onChanged={() => settings.reload()} /> : null}

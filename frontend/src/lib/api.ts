@@ -23,6 +23,8 @@ import type {
   Job,
   LocalAI,
   LocalModel,
+  MemeConcept,
+  MemeRenderResult,
   ModelTestResult,
   PositionBrief,
   Principle,
@@ -34,6 +36,11 @@ import type {
   Source,
   Story,
   StoryDetail,
+  StudioFormats,
+  StudioProject,
+  StudioScene,
+  StudioSourceIn,
+  QualityCheck,
   ThinkSessionDetail,
   ThinkSessionListItem,
   TranscriptSegment,
@@ -219,6 +226,28 @@ export const api = {
   clipToContent: (id: string) => post<ContentItem>(`/videos/clips/${id}/to-content`),
   thumbnailUrl: (id: string, t = 1) => `${API_BASE}/api/videos/${id}/thumbnail?t=${t}`,
   searchSegments: (vid: string, q: string) => get<TranscriptSegment[]>(`/videos/${vid}/segments/search${qs({ q })}`),
+
+  // studio (faceless videos, carousels, memes)
+  studioFormats: () => get<StudioFormats>("/studio/formats"),
+  createFaceless: (body: { source: StudioSourceIn; kind?: string; format?: string | null; target_seconds?: number | null; platform?: string | null; voice_mode?: string | null; title?: string | null; extra_instructions?: string; background?: boolean }) =>
+    post<{ project: StudioProject; job?: Job }>("/studio/faceless", { background: true, ...body }),
+  studioProjects: (kind?: string) => get<StudioProject[]>(`/studio/projects${qs({ kind })}`),
+  studioProject: (id: string) => get<StudioProject>(`/studio/projects/${id}`),
+  studioByContent: (cid: string) => get<StudioProject>(`/studio/by-content/${cid}`),
+  patchStudioProject: (id: string, body: Partial<{ scenes: StudioScene[]; caption: string; hashtags: string[]; voice_mode: string; tts_voice: string; music_path: string; platform: string; target_seconds: number; brand_overrides: Record<string, unknown>; sources: { label?: string; url?: string }[] }>) =>
+    patch<StudioProject>(`/studio/projects/${id}`, body),
+  undoScenes: (id: string) => post<StudioProject>(`/studio/projects/${id}/undo-scenes`),
+  studioVariation: (id: string, variation: string) => post<Job>(`/studio/projects/${id}/variation`, { variation }),
+  regenerateScene: (id: string, idx: number, instruction = "") => post<StudioProject>(`/studio/projects/${id}/scenes/${idx}/regenerate`, { instruction }),
+  scenePreviewUrl: (id: string, idx: number, scale = 0.35, v: string | number = 0) => `${API_BASE}/api/studio/projects/${id}/scenes/${idx}/preview?scale=${scale}&v=${v}`,
+  renderProject: (id: string) => post<Job>(`/studio/projects/${id}/render`),
+  projectFileUrl: (id: string) => `${API_BASE}/api/studio/projects/${id}/file`,
+  slideFileUrl: (id: string, idx: number) => `${API_BASE}/api/studio/projects/${id}/slides/${idx}/file`,
+  studioQuality: (id: string) => get<{ checks: QualityCheck[]; passed: boolean }>(`/studio/projects/${id}/quality`),
+  studioScript: (id: string) => get<{ markdown: string }>(`/studio/projects/${id}/script`),
+  memeConcepts: (body: { source?: StudioSourceIn | null; idea?: string; humor?: string }) => post<{ concepts: MemeConcept[] }>("/studio/memes/concepts", body),
+  memeRender: (body: { template: string; top_text?: string; bottom_text?: string; title?: string; caption?: string; base_image?: string | null; content_item_id?: string | null; save_as_draft?: boolean; story_id?: string | null; principle_ids?: string[] }) =>
+    post<MemeRenderResult>("/studio/memes/render", body),
 
   // book
   books: () => get<BookListItem[]>("/book"),

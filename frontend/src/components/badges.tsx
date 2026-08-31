@@ -1,5 +1,5 @@
 import { Badge } from "./ui/badge";
-import { cn, humanize, labelFormat } from "@/lib/utils";
+import { cn, labelFormat, labelStatus } from "@/lib/utils";
 
 const STATUS_VARIANT: Record<string, "neutral" | "outline" | "accent" | "warn" | "success" | "danger" | "amber" | "violet" | "blue"> = {
   // content pipeline
@@ -50,7 +50,7 @@ export function StatusBadge({ status, className }: { status: string | null | und
   if (!status) return null;
   return (
     <Badge variant={STATUS_VARIANT[status] ?? "outline"} className={className}>
-      {status === status.toUpperCase() ? status.replace(/_/g, " ") : humanize(status)}
+      {labelStatus(status)}
     </Badge>
   );
 }
@@ -93,7 +93,7 @@ export function ClaimBadge({ status }: { status: string }) {
 
 export function FactCheckDot({ status, className }: { status: string; className?: string }) {
   const color = { fact_checked: "bg-emerald-500", overridden: "bg-warn", pending: "bg-amber-400", not_run: "bg-zinc-300" }[status] ?? "bg-zinc-300";
-  return <span title={`Fact check: ${humanize(status)}`} className={cn("inline-block h-2 w-2 rounded-full", color, className)} />;
+  return <span title={`Fact check: ${labelStatus(status)}`} className={cn("inline-block h-2 w-2 rounded-full", color, className)} />;
 }
 
 const RELATION_VARIANT: Record<string, "accent" | "warn" | "neutral" | "violet" | "success"> = {

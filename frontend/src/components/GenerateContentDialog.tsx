@@ -77,7 +77,7 @@ export function GenerateContentDialog({ open, onClose, defaults, onCreated }: { 
     <Dialog
       open={open}
       onClose={onClose}
-      title="Generate content"
+      title="Generate a draft"
       footer={
         <>
           <Button variant="ghost" onClick={onClose}>
@@ -105,6 +105,9 @@ export function GenerateContentDialog({ open, onClose, defaults, onCreated }: { 
             <Input value={title} onChange={(e) => setTitle(e.target.value)} placeholder="Leave blank to let the generator propose one" />
           </Field>
         </div>
+        <details>
+          <summary className="cursor-pointer text-xs font-medium text-zinc-600 hover:text-zinc-900">More options</summary>
+          <div className="mt-2 space-y-3">
         <Field label="Story">
           <Select value={storyId} onChange={(e) => setStoryId(e.target.value)} className="w-full">
             <option value="">None</option>
@@ -115,7 +118,7 @@ export function GenerateContentDialog({ open, onClose, defaults, onCreated }: { 
             ))}
           </Select>
         </Field>
-        <Field label="Position brief">
+        <Field label="My position">
           <Select value={briefId} onChange={(e) => setBriefId(e.target.value)} className="w-full">
             <option value="">None</option>
             {(briefs.data ?? []).map((b) => (
@@ -125,7 +128,7 @@ export function GenerateContentDialog({ open, onClose, defaults, onCreated }: { 
             ))}
           </Select>
         </Field>
-        <Field label="Principles" hint={`${pids.length} selected`}>
+        <Field label="Beliefs to draw on" hint={`${pids.length} selected`}>
           <div className="max-h-36 overflow-y-auto rounded-md border border-zinc-200 p-1.5">
             {(principles.data ?? []).map((p) => (
               <label key={p.id} className="flex cursor-pointer items-center gap-2 rounded px-1 py-0.5 text-xs hover:bg-zinc-50">
@@ -140,13 +143,15 @@ export function GenerateContentDialog({ open, onClose, defaults, onCreated }: { 
         <Field label="Extra instructions">
           <Textarea rows={3} value={extra} onChange={(e) => setExtra(e.target.value)} placeholder="Angle, tone, audience, things to avoid…" />
         </Field>
+          </div>
+        </details>
         <ErrorNotice error={act.error} />
         {jobId ? <JobStatus jobId={jobId} label="Generating content" onDone={onDone} /> : null}
         {itemId ? (
           <p className="text-[13px]">
             Created.{" "}
-            <Link href={`/content/${itemId}`} className="font-medium text-accent-strong underline-offset-2 hover:underline">
-              Open the content item
+            <Link href={`/library/content/${itemId}`} className="font-medium text-accent-strong underline-offset-2 hover:underline">
+              Open the draft
             </Link>
           </p>
         ) : null}

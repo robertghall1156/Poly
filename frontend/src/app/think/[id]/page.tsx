@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import { api } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
-import { cn, fmtDateTime, humanize } from "@/lib/utils";
+import { cn, fmtDateTime, humanize, labelStatus } from "@/lib/utils";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/input";
@@ -40,7 +40,7 @@ export default function ThinkSessionPage() {
   };
   const makeBrief = async () => {
     const b = await briefAct.run(() => api.briefFromThink(id));
-    if (b) router.push(`/think/briefs/${b.id}`);
+    if (b) router.push(`/think/positions/${b.id}`);
   };
   const abandon = async () => {
     const r = await act.run(() => api.abandonThink(id));
@@ -71,7 +71,7 @@ export default function ThinkSessionPage() {
             <StatusBadge status={s.status} />
             <span>{userTurns} answers</span>
             {s.story_id ? (
-              <Link href={`/stories/${s.story_id}`} className="text-accent-strong hover:underline">
+              <Link href={`/discover/stories/${s.story_id}`} className="text-accent-strong hover:underline">
                 Open story
               </Link>
             ) : null}
@@ -86,7 +86,7 @@ export default function ThinkSessionPage() {
               </Button>
             ) : null}
             <Button variant={cloud ? "warn" : "default"} onClick={makeBrief} loading={briefAct.busy} disabled={userTurns === 0}>
-              Generate Position Brief
+              Draft my position
             </Button>
           </>
         }
@@ -134,15 +134,15 @@ export default function ThinkSessionPage() {
             </div>
           ) : null}
           {s.status === "active" && !awaiting ? <Notice className="mt-3">Waiting for the interviewer’s next question. If the local model failed, retry by re-answering or check Settings → Local AI.</Notice> : null}
-          {s.status !== "active" ? <Notice className="mt-3">This session is {s.status}. Briefs generated from it are listed on the right.</Notice> : null}
+          {s.status !== "active" ? <Notice className="mt-3">This idea is {labelStatus(s.status).toLowerCase()}. Positions drafted from it are listed on the right.</Notice> : null}
         </div>
         <aside className="space-y-3">
-          <Panel title="Briefs">
-            {s.briefs.length === 0 ? <p className="text-xs text-zinc-400">No brief yet.</p> : null}
+          <Panel title="My positions">
+            {s.briefs.length === 0 ? <p className="text-xs text-zinc-400">No position drafted yet.</p> : null}
             <ul className="space-y-1.5">
               {s.briefs.map((b) => (
                 <li key={b.id} className="text-[13px]">
-                  <Link href={`/think/briefs/${b.id}`} className="font-medium text-zinc-900 hover:text-accent-strong">
+                  <Link href={`/think/positions/${b.id}`} className="font-medium text-zinc-900 hover:text-accent-strong">
                     {b.issue}
                   </Link>
                   <div className="flex items-center gap-2">
@@ -153,12 +153,12 @@ export default function ThinkSessionPage() {
               ))}
             </ul>
           </Panel>
-          <Panel title="Principles considered">
+          <Panel title="Beliefs considered">
             {s.principles_considered.length === 0 ? <p className="text-xs text-zinc-400">None yet.</p> : null}
             <ul className="space-y-1">
               {s.principles_considered.map((p) => (
                 <li key={p.id} className="text-[13px]">
-                  <Link href={`/principles/${p.id}`} className="text-zinc-900 hover:text-accent-strong">
+                  <Link href={`/think/beliefs/${p.id}`} className="text-zinc-900 hover:text-accent-strong">
                     {p.title}
                   </Link>
                   <span className="ml-1 text-[11px] text-zinc-400">{p.category}</span>
