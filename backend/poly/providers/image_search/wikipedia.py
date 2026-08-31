@@ -39,16 +39,18 @@ MIN_EDGE = 500
 # An article's images are returned in page-id order, which has nothing to do with usefulness:
 # for a sitting president that puts a high-school yearbook portrait and a chart of his
 # statements ahead of anything from his presidency. Rank them.
+# Word boundaries matter: without them "Photographer" contains "graph", and every picture
+# with a credited photographer was penalised as if it were a chart.
 _WEAK = re.compile(
-    r"yearbook|ai[-_ ]generated|graph|chart|composite|diagram|timeline|signature|autograph|"
+    r"(?<![A-Za-z])(?:yearbook|ai[-_ ]generated|graph|chart|composite|diagram|timeline|signature|autograph|"
     r"logo|book_?cover|cartoon|caricature|grave|birthplace|childhood|young|school|"
-    r"family_?tree|residence|plaque|ballot|sticker|badge|screenshot|meme|word_?cloud",
+    r"family_?tree|residence|plaque|ballot|sticker|badge|screenshot|meme|word_?cloud)(?![A-Za-z])",
     re.I,
 )
 _STRONG = re.compile(
-    r"official_?portrait|white_?house|oval_?office|president|inaugurat|address|speech|"
+    r"(?<![A-Za-z])(?:official_?portrait|white_?house|oval_?office|president|inaugurat|address|speech|"
     r"press_?conference|podium|rally|signing|summit|state_?of_the_union|briefing|"
-    r"cabinet|air_?force_?one|motorcade|debate",
+    r"cabinet|air_?force_?one|motorcade|debate)(?![A-Za-z])",
     re.I,
 )
 _YEAR = re.compile(r"(19|20)\d{2}")

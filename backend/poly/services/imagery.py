@@ -49,7 +49,7 @@ TREATMENTS = ["full_bleed", "band", "portrait"]
 # Bumped whenever picture selection itself gets better. A picture Poly chose under older,
 # worse rules is re-picked on the next run; one the owner pinned is never touched. Without
 # this, an improvement only reaches new decks and every existing slide keeps its bad guess.
-PICKER_VERSION = 3
+PICKER_VERSION = 4
 
 # Words that would push a generator toward a photograph. Stripped from every prompt.
 _PHOTOREAL = re.compile(r"\b(photo\w*|photograph\w*|realistic|hyper[- ]?real\w*|lifelike|4k|8k|dslr|render(ing)?|cgi|deep\s*fake|deepfake)\b", re.I)
@@ -72,24 +72,28 @@ def search(db: Session, query: str, *, limit: int = 12, subject: Subject | None 
     out: list[dict[str, Any]] = []
     errors: list[str] = []
     for provider in all_providers():
-        if len(out) >= limit:
-            break
         try:
-            for c in provider.search(query, limit=limit - len(out)):
-                if c.url:
-                    out.append(_as_dict(c))
+            found = [_as_dict(c) for c in provider.search(query, limit=limit) if c.url]
         except ProviderError as e:
             errors.append(str(e))
             log.warning("image search via %s failed: %s", provider.name, e)
+            continue
+        out.extend(found)
+        # Providers are in precision order. Topping up a good answer with a looser source is
+        # how a deck about a president picks up his daughter and a typeface named after him.
+        if len(out) >= 3:
+            break
+    for c in out:
+        c["quality"] = picture_rank(c.get("title", ""), credit=c.get("author", ""))
     if subject is not None:
         scored = [(score_candidate(c["title"], subject, thing=thing), c) for c in out]
-        kept = [(s, c) for s, c in scored if s > 0]
-        kept.sort(key=lambda pair: -pair[0])
+        kept = [(s, c) for s, c in scored if s > 0 and c["quality"] >= 40]
+        kept.sort(key=lambda pair: -(pair[0] * 10 + pair[1]["quality"]))
         for s, c in kept:
             c["match_score"] = s
         rejected = len(out) - len(kept)
         if rejected:
-            log.info("dropped %d picture(s) that do not depict %s", rejected, subject.name)
+            log.info("dropped %d picture(s) — wrong subject or poor choice for %s", rejected, subject.name)
         out = [c for _, c in kept]
     if not out and errors:
         raise ProviderError("; ".join(errors[:2]), provider="image_search")
