@@ -92,7 +92,7 @@ export function PictureSidebar({
     .filter((x) => x.path);
 
   return (
-    <div className="flex h-full min-h-0 flex-col gap-2">
+    <div className="flex flex-col gap-2">
       <div className="flex items-center gap-1 border-b border-zinc-200 pb-1.5">
         {(["search", "library", "deck"] as Tab[]).map((t) => (
           <button
@@ -190,7 +190,9 @@ export function PictureSidebar({
 }
 
 function Grid({ children }: { children: React.ReactNode }) {
-  return <div className="grid min-h-0 flex-1 auto-rows-min grid-cols-2 gap-1.5 overflow-y-auto pr-0.5">{children}</div>;
+  // An explicit height, not flex-fill: the panel's parent has no resolved height, so a
+  // flex-1 child collapsed to zero and every result rendered into nothing.
+  return <div className="grid max-h-[300px] auto-rows-min grid-cols-3 gap-1.5 overflow-y-auto pr-0.5">{children}</div>;
 }
 
 function Thumb({ src, caption, title, disabled, onClick }: { src: string; caption: string; title: string; disabled: boolean; onClick: () => void }) {

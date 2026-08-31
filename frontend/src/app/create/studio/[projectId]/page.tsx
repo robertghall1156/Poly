@@ -333,7 +333,7 @@ export default function StudioEditorPage() {
         <div className="space-y-3">
           <div className="rounded-md border border-zinc-200 bg-white p-3">
             <p className="kicker mb-2 text-zinc-500">Pictures</p>
-            <div className="max-h-[420px]">
+            <div>
               <PictureSidebar
                 projectId={projectId}
                 scenes={scenes}
