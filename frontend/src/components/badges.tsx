@@ -92,7 +92,7 @@ export function ClaimBadge({ status }: { status: string }) {
 }
 
 export function FactCheckDot({ status, className }: { status: string; className?: string }) {
-  const color = { fact_checked: "bg-emerald-500", overridden: "bg-warn", pending: "bg-amber-400", not_run: "bg-zinc-300" }[status] ?? "bg-zinc-300";
+  const color = { fact_checked: "bg-accent", overridden: "bg-highlight", pending: "bg-highlight/60", not_run: "bg-zinc-300" }[status] ?? "bg-zinc-300";
   return <span title={`Fact check: ${labelStatus(status)}`} className={cn("inline-block h-2 w-2 rounded-full", color, className)} />;
 }
 
@@ -113,7 +113,7 @@ export function Confidence({ value, className }: { value: number | null | undefi
   const p = Math.round(value * 100);
   return (
     <span className={cn("inline-flex items-center gap-1.5", className)} title={`Confidence ${p}%`}>
-      <span className="inline-block h-1.5 w-12 overflow-hidden rounded-full bg-zinc-200">
+      <span className="inline-block h-1.5 w-12 overflow-hidden bg-ink/12">
         <span className="block h-full bg-accent" style={{ width: `${p}%` }} />
       </span>
       <span className="font-mono text-[11px] text-zinc-600">{p}%</span>
@@ -123,6 +123,6 @@ export function Confidence({ value, className }: { value: number | null | undefi
 
 export function Relevance({ value }: { value: number }) {
   const p = Math.round(value * 100);
-  const tone = value >= 0.6 ? "text-emerald-700" : value >= 0.35 ? "text-zinc-700" : "text-zinc-400";
+  const tone = value >= 0.6 ? "text-accent-strong" : value >= 0.35 ? "text-zinc-700" : "text-zinc-400";
   return <span className={cn("font-mono text-[11px] tabular-nums", tone)}>{p}</span>;
 }

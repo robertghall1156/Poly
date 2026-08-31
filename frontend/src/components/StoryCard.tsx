@@ -32,19 +32,20 @@ export function StoryCard({ story, onChange, compact }: { story: StoryRowData; o
   };
 
   return (
-    <article className={cn("border-b border-zinc-200 py-3 last:border-b-0", story.dashboard_action === "ignored" && "opacity-50")}>
-      <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-        <Link href={`/discover/stories/${story.id}`} className="text-[14px] font-semibold text-zinc-900 hover:text-accent-strong">
+    <article className={cn("border-t border-divider py-4 first:border-t-0", story.dashboard_action === "ignored" && "opacity-50")}>
+      <div className="flex flex-wrap items-baseline justify-between gap-x-6 gap-y-1">
+        <Link href={`/discover/stories/${story.id}`} className="min-w-0 font-heading text-[17px] leading-snug text-ink [text-wrap:pretty] hover:text-accent-strong">
           {story.title}
         </Link>
-        <span className="text-xs text-zinc-400">
-          {story.article_count} article{story.article_count === 1 ? "" : "s"} · {relTime(story.last_updated)}
+        <span className="meta shrink-0">
+          {story.topics[0] ? `${story.topics[0]} · ` : ""}
+          {story.article_count} source{story.article_count === 1 ? "" : "s"} · {relTime(story.last_updated)}
         </span>
       </div>
-      {!compact && story.summary ? <p className="mt-1 text-[13px] text-zinc-700">{story.summary}</p> : null}
+      {!compact && story.summary ? <p className="mt-1 text-[13.5px] text-zinc-600">{story.summary}</p> : null}
       {story.why_it_matters ? (
-        <p className="mt-1 text-[13px] text-zinc-600">
-          <span className="font-medium text-zinc-800">Why it matters: </span>
+        <p className="mt-1 text-[13.5px] text-zinc-700">
+          <span className="font-heading text-ink">Why it matters — </span>
           {story.why_it_matters}
         </p>
       ) : null}

@@ -92,7 +92,7 @@ export default function StoryDetailPage() {
             <Badge key={t}>{t}</Badge>
           ))}
         </div>
-        <h1 className="mt-1 text-lg font-semibold tracking-tight text-zinc-900">{s.title}</h1>
+        <h1 className="mt-1.5 text-[clamp(28px,3vw,36px)] [text-wrap:pretty]">{s.title}</h1>
         <p className="mt-1.5 text-[13px] text-zinc-800">{s.summary || <span className="text-zinc-400">No summary yet — press Refresh analysis below.</span>}</p>
         {s.why_it_matters ? (
           <p className="mt-1.5 text-[13px] text-zinc-700">

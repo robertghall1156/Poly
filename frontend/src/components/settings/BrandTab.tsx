@@ -79,7 +79,7 @@ export function BrandTab({ settings, onChanged }: { settings: AllSettings | null
           <Button variant="default" onClick={save} loading={act.busy}>
             Save brand
           </Button>
-          {saved ? <span className="text-xs text-emerald-700">Saved — applied everywhere.</span> : null}
+          {saved ? <span className="text-xs text-accent-strong">Saved — applied everywhere.</span> : null}
         </div>
         <ErrorNotice error={act.error} />
         <Notice>Your videos, memes and carousels are rendered with these exact colors, and the app itself uses them too.</Notice>
@@ -87,28 +87,34 @@ export function BrandTab({ settings, onChanged }: { settings: AllSettings | null
 
       <aside>
         <Panel title="Live preview">
-          <div className="overflow-hidden rounded-md border border-zinc-200" style={{ background: String(brand.background) }}>
-            <div className="p-4">
-              <p className="text-sm font-semibold" style={{ color: String(brand.primary) }}>
-                {String(brand.logo_text || "Poly")}
+          <div className="overflow-hidden border" style={{ background: String(brand.background), borderColor: `color-mix(in srgb, ${String(brand.primary)} 40%, transparent)` }}>
+            <div className="p-4 font-heading" style={{ color: String(brand.primary) }}>
+              <div className="flex items-baseline gap-1.5">
+                <span className="text-[17px] uppercase leading-none tracking-[-0.02em]">{String(brand.logo_text || "Poly")}</span>
+                <span className="h-1.5 w-1.5" style={{ background: String(brand.accent) }} />
+              </div>
+              <p className="mt-2 text-[10px] uppercase tracking-[0.1em]" style={{ color: String(brand.accent) }}>
+                Sunday 31 August
               </p>
-              <p className="mt-1 text-xs" style={{ color: String(brand.secondary) }}>
-                One person, one vote — but not one voice?
+              <p className="mt-0.5 text-[19px] leading-[1.12] tracking-[-0.015em]">One person, one vote — but not one voice?</p>
+              <p className="mt-1.5 font-sans text-xs font-normal" style={{ color: String(brand.secondary) }}>
+                Headlines set in Archivo 800 on your paper color, ruled with hairlines of your primary ink.
               </p>
-              <div className="mt-3 flex gap-2">
-                <span className="rounded px-2 py-1 text-[11px] font-medium text-white" style={{ background: String(brand.primary) }}>
-                  Primary
+              <div className="mt-2.5" style={{ height: 2, background: `color-mix(in srgb, ${String(brand.primary)} 40%, transparent)` }} />
+              <div className="mt-3 flex items-center gap-2">
+                <span className="px-2 py-1 text-[10px] uppercase tracking-[0.09em]" style={{ background: String(brand.accent), color: String(brand.background) }}>
+                  Understand
                 </span>
-                <span className="rounded px-2 py-1 text-[11px] font-medium text-white" style={{ background: String(brand.accent) }}>
-                  Accent
+                <span className="border px-2 py-1 text-[10px] uppercase tracking-[0.09em]" style={{ borderColor: `color-mix(in srgb, ${String(brand.primary)} 40%, transparent)` }}>
+                  Think about this
                 </span>
-                <span className="rounded px-2 py-1 text-[11px] font-medium" style={{ background: String(brand.highlight), color: String(brand.primary) }}>
-                  Highlight
+                <span className="border px-1.5 py-0.5 text-[9px] uppercase tracking-[0.05em]" style={{ borderColor: String(brand.highlight), color: String(brand.highlight) }}>
+                  Contested
                 </span>
               </div>
               <div className="mt-3 flex gap-1.5">
                 {COLOR_FIELDS.map((f) => (
-                  <span key={String(f.key)} title={f.label} className="h-6 w-6 rounded-full border border-black/10" style={{ background: String(brand[f.key]) }} />
+                  <span key={String(f.key)} title={f.label} className="h-6 w-6 border border-black/10" style={{ background: String(brand[f.key]) }} />
                 ))}
               </div>
             </div>

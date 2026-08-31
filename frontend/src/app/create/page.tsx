@@ -159,8 +159,8 @@ function FacelessFlow({ kind, short, source, onSource }: { kind: "faceless_video
                   setStyleTouched(true);
                 }}
                 className={cn(
-                  "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                  style === f.id ? "border-accent bg-accent-soft text-accent-strong" : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50",
+                  "border px-3 py-1 text-xs font-medium transition-colors",
+                  style === f.id ? "border-accent bg-accent-soft text-accent-strong" : "border-divider bg-transparent text-zinc-700 hover:bg-ink/5",
                 )}
               >
                 {f.label}
@@ -178,8 +178,8 @@ function FacelessFlow({ kind, short, source, onSource }: { kind: "faceless_video
                   type="button"
                   onClick={() => setSeconds(l)}
                   className={cn(
-                    "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-                    seconds === l ? "border-accent bg-accent-soft text-accent-strong" : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50",
+                    "border px-3 py-1 text-xs font-medium transition-colors",
+                    seconds === l ? "border-accent bg-accent-soft text-accent-strong" : "border-divider bg-transparent text-zinc-700 hover:bg-ink/5",
                   )}
                 >
                   {l}s
@@ -321,7 +321,7 @@ function MemeConceptCard({ concept, source }: { concept: MemeConcept; source: So
               {approved ? "Approved" : "Approve"}
             </Button>
           </div>
-          {approved ? <p className="mt-1 text-xs text-emerald-700">Approved — saved as a draft in your Library.</p> : null}
+          {approved ? <p className="mt-1 text-xs text-accent-strong">Approved — saved as a draft in your Library.</p> : null}
         </div>
       ) : null}
     </div>

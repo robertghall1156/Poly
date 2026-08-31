@@ -142,7 +142,7 @@ export function SearchPalette({ open, onClose }: { open: boolean; onClose: () =>
           <kbd className="rounded border border-zinc-200 px-1 font-mono text-[10px] text-zinc-400">esc</kbd>
         </div>
         <div className="max-h-[60vh] overflow-y-auto">
-          {error ? <p className="px-4 py-3 text-xs text-red-700">{error}</p> : null}
+          {error ? <p className="px-4 py-3 text-xs text-danger">{error}</p> : null}
           {!error && q.trim().length >= 2 && !loading && hits.length === 0 ? <p className="px-4 py-6 text-center text-xs text-zinc-500">No results for “{q.trim()}”.</p> : null}
           {q.trim().length < 2 ? <p className="px-4 py-6 text-center text-xs text-zinc-500">Type at least two characters. Results are grouped by entity type.</p> : null}
           {grouped.map((g) => (

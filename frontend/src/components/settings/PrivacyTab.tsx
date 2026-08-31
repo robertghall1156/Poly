@@ -38,7 +38,7 @@ export function PrivacyTab({ settings, onChanged }: { settings: AllSettings | nu
   return (
     <div className="space-y-4">
       <div className={cn("rounded-md border px-4 py-3", cloudOn ? "border-warn bg-warn-soft" : "border-zinc-200 bg-white")}>
-        <p className={cn("text-sm font-semibold", cloudOn ? "text-[#9a3a1c]" : "text-zinc-900")}>{cloudOn ? "Cloud AI is permitted. Content may leave this machine." : "Everything stays on this machine."}</p>
+        <p className={cn("text-sm font-semibold", cloudOn ? "text-highlight-strong" : "text-zinc-900")}>{cloudOn ? "Cloud AI is permitted. Content may leave this machine." : "Everything stays on this machine."}</p>
         <p className="mt-0.5 text-xs text-zinc-600">{cloudOn ? "Any action that can call a cloud provider is highlighted in orange throughout the app." : "Local AI only. Private material never leaves the machine unless you explicitly allow cloud AI below."}</p>
       </div>
       <ErrorNotice error={act.error} />
@@ -97,7 +97,7 @@ export function PrivacyTab({ settings, onChanged }: { settings: AllSettings | nu
         }
       >
         <div className="space-y-2 text-[13px] text-zinc-800">
-          <p className="font-medium text-[#9a3a1c]">When cloud AI is permitted, the following can be sent to Anthropic or OpenAI:</p>
+          <p className="font-medium text-highlight-strong">When cloud AI is permitted, the following can be sent to Anthropic or OpenAI:</p>
           <ul className="list-disc space-y-1 pl-5">
             <li>Story summaries, article text and extracted claims being analysed</li>
             <li>Your Think Mode answers and the resulting position briefs</li>

@@ -149,50 +149,50 @@ function Scatter({ items }: { items: AnalyticsItem[] }) {
   const ym = y(3);
   const [hover, setHover] = React.useState<AnalyticsItem | null>(null);
   return (
-    <div className="rounded-md border border-zinc-200 bg-white p-2">
+    <div className="border border-divider bg-paper p-2">
       <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full" role="img" aria-label="Engagement versus substantive value">
-        <rect x={xm} y={P.t} width={W - P.r - xm} height={ym - P.t} fill="#e6f6f7" />
-        <rect x={xm} y={ym} width={W - P.r - xm} height={H - P.b - ym} fill="#fdeee9" />
-        <rect x={P.l} y={P.t} width={xm - P.l} height={ym - P.t} fill="#f4f4f5" />
-        <line x1={P.l} y1={H - P.b} x2={W - P.r} y2={H - P.b} stroke="#a1a1aa" />
-        <line x1={P.l} y1={P.t} x2={P.l} y2={H - P.b} stroke="#a1a1aa" />
-        <line x1={xm} y1={P.t} x2={xm} y2={H - P.b} stroke="#71717a" strokeDasharray="4 3" />
-        <line x1={P.l} y1={ym} x2={W - P.r} y2={ym} stroke="#71717a" strokeDasharray="4 3" />
-        <text x={W - P.r - 6} y={P.t + 14} textAnchor="end" fontSize={11} fontWeight={600} fill="#0f6f74">
+        <rect x={xm} y={P.t} width={W - P.r - xm} height={ym - P.t} fill="color-mix(in srgb, var(--brand-accent) 10%, var(--paper))" />
+        <rect x={xm} y={ym} width={W - P.r - xm} height={H - P.b - ym} fill="color-mix(in srgb, var(--brand-highlight) 12%, var(--paper))" />
+        <rect x={P.l} y={P.t} width={xm - P.l} height={ym - P.t} fill="color-mix(in srgb, var(--ink) 4%, var(--paper))" />
+        <line x1={P.l} y1={H - P.b} x2={W - P.r} y2={H - P.b} stroke="color-mix(in srgb, var(--ink) 45%, transparent)" />
+        <line x1={P.l} y1={P.t} x2={P.l} y2={H - P.b} stroke="color-mix(in srgb, var(--ink) 45%, transparent)" />
+        <line x1={xm} y1={P.t} x2={xm} y2={H - P.b} stroke="color-mix(in srgb, var(--ink) 55%, transparent)" strokeDasharray="4 3" />
+        <line x1={P.l} y1={ym} x2={W - P.r} y2={ym} stroke="color-mix(in srgb, var(--ink) 55%, transparent)" strokeDasharray="4 3" />
+        <text x={W - P.r - 6} y={P.t + 14} textAnchor="end" fontSize={11} fontWeight={600} fill="var(--brand-accent)">
           High engagement + high substantive value
         </text>
-        <text x={W - P.r - 6} y={H - P.b - 8} textAnchor="end" fontSize={11} fontWeight={600} fill="#b3401f">
+        <text x={W - P.r - 6} y={H - P.b - 8} textAnchor="end" fontSize={11} fontWeight={600} fill="color-mix(in srgb, var(--brand-highlight) 55%, var(--ink))">
           High engagement + low substantive value
         </text>
-        <text x={P.l + 6} y={P.t + 14} fontSize={11} fill="#52525b">
+        <text x={P.l + 6} y={P.t + 14} fontSize={11} fill="color-mix(in srgb, var(--ink) 65%, transparent)">
           Low engagement + high substance
         </text>
-        <text x={P.l + 6} y={H - P.b - 8} fontSize={11} fill="#52525b">
+        <text x={P.l + 6} y={H - P.b - 8} fontSize={11} fill="color-mix(in srgb, var(--ink) 65%, transparent)">
           Low engagement + low substance
         </text>
-        <text x={(P.l + W - P.r) / 2} y={H - 8} textAnchor="middle" fontSize={11} fill="#52525b">
+        <text x={(P.l + W - P.r) / 2} y={H - 8} textAnchor="middle" fontSize={11} fill="color-mix(in srgb, var(--ink) 65%, transparent)">
           Engagement (views + 5×likes + 10×comments + 15×shares) · median {fmtNumber(med)}
         </text>
-        <text x={12} y={(P.t + H - P.b) / 2} textAnchor="middle" fontSize={11} fill="#52525b" transform={`rotate(-90 12 ${(P.t + H - P.b) / 2})`}>
+        <text x={12} y={(P.t + H - P.b) / 2} textAnchor="middle" fontSize={11} fill="color-mix(in srgb, var(--ink) 65%, transparent)" transform={`rotate(-90 12 ${(P.t + H - P.b) / 2})`}>
           Substantive value (0–5)
         </text>
         {[0, 1, 2, 3, 4, 5].map((v) => (
-          <text key={v} x={P.l - 6} y={y(v) + 3} textAnchor="end" fontSize={10} fill="#71717a">
+          <text key={v} x={P.l - 6} y={y(v) + 3} textAnchor="end" fontSize={10} fill="color-mix(in srgb, var(--ink) 55%, transparent)">
             {v}
           </text>
         ))}
         {items.map((i) => (
           <g key={i.id} onMouseEnter={() => setHover(i)} onMouseLeave={() => setHover(null)}>
-            <circle cx={x(i.engagement)} cy={y(i.substantive_value)} r={hover?.id === i.id ? 7 : 5} fill={i.substantive_value >= 3 ? "#1EADB4" : "#F46543"} stroke="#fff" strokeWidth={1.5} />
+            <circle cx={x(i.engagement)} cy={y(i.substantive_value)} r={hover?.id === i.id ? 7 : 5} fill={i.substantive_value >= 3 ? "var(--brand-accent)" : "var(--brand-highlight)"} stroke="var(--paper)" strokeWidth={1.5} />
           </g>
         ))}
         {hover ? (
           <g>
-            <rect x={Math.min(x(hover.engagement) + 8, W - 220)} y={Math.max(P.t, y(hover.substantive_value) - 34)} width={210} height={30} rx={3} fill="#18181b" />
-            <text x={Math.min(x(hover.engagement) + 14, W - 214)} y={Math.max(P.t, y(hover.substantive_value) - 34) + 12} fontSize={10} fill="#fff">
+            <rect x={Math.min(x(hover.engagement) + 8, W - 220)} y={Math.max(P.t, y(hover.substantive_value) - 34)} width={210} height={30} fill="var(--ink)" />
+            <text x={Math.min(x(hover.engagement) + 14, W - 214)} y={Math.max(P.t, y(hover.substantive_value) - 34) + 12} fontSize={10} fill="var(--paper)">
               {hover.title.slice(0, 40)}
             </text>
-            <text x={Math.min(x(hover.engagement) + 14, W - 214)} y={Math.max(P.t, y(hover.substantive_value) - 34) + 24} fontSize={10} fill="#d4d4d8">
+            <text x={Math.min(x(hover.engagement) + 14, W - 214)} y={Math.max(P.t, y(hover.substantive_value) - 34) + 24} fontSize={10} fill="color-mix(in srgb, var(--paper) 80%, transparent)">
               engagement {fmtNumber(hover.engagement)} · substance {hover.substantive_value.toFixed(1)}
             </text>
           </g>

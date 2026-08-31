@@ -99,7 +99,7 @@ export default function ReviewPage() {
         </Link>{" "}
         / review
       </div>
-      <h1 className="mb-4 text-lg font-semibold tracking-tight text-zinc-900">Is this good to go?</h1>
+      <h1 className="mb-5 text-[36px]">Is this good to go?</h1>
       <ErrorNotice error={act.error} className="mb-3" />
       {isReady ? <Notice kind="success" className="mb-3">Approved and marked Ready. Export it below whenever you like.</Notice> : null}
 
@@ -190,14 +190,14 @@ export default function ReviewPage() {
                 {(quality.data?.checks ?? []).map((c, i) => (
                   <li key={i} className="flex items-start gap-2 text-[13px]">
                     {c.status === "pass" ? (
-                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-emerald-600" />
+                      <CheckCircle2 className="mt-0.5 h-4 w-4 shrink-0 text-accent-strong" />
                     ) : c.status === "fail" ? (
-                      <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-red-600" />
+                      <XCircle className="mt-0.5 h-4 w-4 shrink-0 text-danger" />
                     ) : (
-                      <Circle className="mt-0.5 h-4 w-4 shrink-0 text-amber-500" />
+                      <Circle className="mt-0.5 h-4 w-4 shrink-0 text-highlight" />
                     )}
                     <span>
-                      <span className={cn("font-medium", c.status === "fail" ? "text-red-800" : c.status === "warn" ? "text-amber-800" : "text-zinc-800")}>{c.check}</span>{" "}
+                      <span className={cn("font-medium", c.status === "fail" ? "text-danger" : c.status === "warn" ? "text-highlight-strong" : "text-zinc-800")}>{c.check}</span>{" "}
                       <span className="text-zinc-600">{c.detail}</span>
                     </span>
                   </li>
@@ -229,7 +229,7 @@ export default function ReviewPage() {
               </a>
             </div>
             {gate ? (
-              <div className="mt-3 rounded-md border border-warn/50 bg-warn-soft p-2 text-xs text-[#9a3a1c]">
+              <div className="mt-3 rounded-md border border-warn/50 bg-warn-soft p-2 text-xs text-highlight-strong">
                 <p className="font-medium">Not approved yet</p>
                 <p className="mt-0.5">{gate}</p>
                 <Input className="mt-2 bg-white" placeholder="Add a note explaining why it's fine" value={note} onChange={(e) => setNote(e.target.value)} data-testid="approve-note" />
@@ -257,8 +257,8 @@ export default function ReviewPage() {
 function UnresolvedClaims({ claims, contentId, onResolved }: { claims: FactCheckClaim[]; contentId: string; onResolved: (r: ContentItem) => void }) {
   const [editing, setEditing] = React.useState<FactCheckClaim | null>(null);
   return (
-    <div className="rounded-md border border-red-200 bg-white">
-      <div className="border-b border-red-100 px-3 py-2 text-[13px] font-semibold text-red-800">
+    <div className="rounded-md border border-danger/40 bg-white">
+      <div className="border-b border-danger/40 px-3 py-2 text-[13px] font-semibold text-danger">
         {claims.length} claim{claims.length === 1 ? "" : "s"} still unverified
       </div>
       <ul>

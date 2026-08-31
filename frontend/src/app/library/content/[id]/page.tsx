@@ -125,7 +125,7 @@ export default function ContentDetailPage() {
             {unresolved ? <Badge variant="danger">{unresolved} claim{unresolved === 1 ? "" : "s"} to verify</Badge> : null}
             <span>· updated {relTime(c.updated_at)}</span>
             {typeof c.generation_meta?.model === "string" ? (
-              <span className={cn("font-mono text-[11px]", c.generation_meta.locality === "cloud" ? "text-[#b3401f]" : "text-zinc-400")}>
+              <span className={cn("font-mono text-[11px]", c.generation_meta.locality === "cloud" ? "text-highlight-strong" : "text-zinc-400")}>
                 {String(c.generation_meta.provider ?? "")}:{String(c.generation_meta.model)} {c.generation_meta.locality === "cloud" ? "(cloud)" : ""}
               </span>
             ) : null}
@@ -284,7 +284,7 @@ export default function ContentDetailPage() {
             </Select>
             <ErrorNotice error={statusAct.error} className="mt-2" />
             {gate ? (
-              <div className="mt-2 rounded-md border border-warn/50 bg-warn-soft p-2 text-xs text-[#9a3a1c]">
+              <div className="mt-2 rounded-md border border-warn/50 bg-warn-soft p-2 text-xs text-highlight-strong">
                 <p className="font-medium">Hold on — facts first</p>
                 <p className="mt-0.5">{gate.message}</p>
                 <Input className="mt-2 bg-white" placeholder="Add a note explaining why it's fine" value={override} onChange={(e) => setOverride(e.target.value)} />
@@ -298,7 +298,7 @@ export default function ContentDetailPage() {
                 </div>
               </div>
             ) : null}
-            {c.fact_check_override_reason ? <p className="mt-2 text-xs text-[#9a3a1c]">Approved with a note: {c.fact_check_override_reason}</p> : null}
+            {c.fact_check_override_reason ? <p className="mt-2 text-xs text-highlight-strong">Approved with a note: {c.fact_check_override_reason}</p> : null}
             {c.approved_at ? <p className="mt-2 text-xs text-zinc-500">Approved {fmtDateTime(c.approved_at)}</p> : null}
           </Panel>
           <Panel title="Lineage">
@@ -436,11 +436,11 @@ function FactCheckPanel({ item, jobId, onRun, busy, cloud, onJobDone, onResolved
           </THead>
           <TBody>
             {item.fact_check_claims.map((f) => (
-              <TR key={f.id} className={!f.resolved ? "bg-red-50/40" : ""}>
+              <TR key={f.id} className={!f.resolved ? "bg-danger-soft" : ""}>
                 <TD className="max-w-md text-zinc-900">{f.text}</TD>
                 <TD>
                   <ClaimBadge status={f.status} />
-                  {!f.resolved ? <div className="text-[10px] uppercase text-red-700">unresolved</div> : null}
+                  {!f.resolved ? <div className="text-[10px] uppercase text-danger">unresolved</div> : null}
                 </TD>
                 <TD className="max-w-[12rem] text-xs">
                   {f.sources.length === 0 ? <span className="text-zinc-400">—</span> : null}

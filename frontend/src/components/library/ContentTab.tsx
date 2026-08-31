@@ -71,7 +71,7 @@ export function ContentTab() {
                 <TD className="whitespace-nowrap text-xs text-zinc-600">
                   <FactCheckDot status={c.fact_check_status} className="mr-1.5" />
                   {labelStatus(c.fact_check_status)}
-                  {c.unresolved_claims ? <span className="ml-1 font-medium text-red-700">({c.unresolved_claims})</span> : null}
+                  {c.unresolved_claims ? <span className="ml-1 font-medium text-danger">({c.unresolved_claims})</span> : null}
                 </TD>
                 <TD className="whitespace-nowrap text-xs text-zinc-500">{relTime(c.updated_at)}</TD>
               </TR>

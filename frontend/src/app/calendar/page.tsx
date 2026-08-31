@@ -84,9 +84,9 @@ export default function CalendarPage() {
       <Section title="Upcoming by date" className="mt-6">
         {upcoming.length === 0 ? <p className="text-xs text-zinc-400">No items have a publish date. Set one on a content item.</p> : null}
         {upcoming.length ? (
-          <div className="rounded-md border border-zinc-200 bg-white">
+          <div>
             {upcoming.map((c) => (
-              <div key={c.id} className="flex items-center gap-3 border-b border-zinc-200 px-3 py-1.5 text-[13px] last:border-b-0">
+              <div key={c.id} className="flex items-center gap-3 border-b border-divider py-2 text-[13px] last:border-b-0">
                 <span className="w-24 font-mono text-[11px] text-zinc-500">{fmtDate(c.publish_date)}</span>
                 <Link href={`/library/content/${c.id}`} className="min-w-0 flex-1 truncate font-medium text-zinc-900 hover:text-accent-strong">
                   {c.title}
@@ -120,7 +120,7 @@ export default function CalendarPage() {
             <p className="text-[13px] text-zinc-800">
               “{gate.card.title}” cannot move to {labelStatus(gate.status)} yet:
             </p>
-            <p className="rounded border border-warn/50 bg-warn-soft p-2 text-xs text-[#9a3a1c]">{gate.message}</p>
+            <p className="rounded border border-warn/50 bg-warn-soft p-2 text-xs text-highlight-strong">{gate.message}</p>
             <Field label="Your note" hint="recorded on the draft">
               <Input value={reason} onChange={(e) => setReason(e.target.value)} autoFocus />
             </Field>
@@ -146,7 +146,7 @@ function Column({ id, cards }: { id: string; cards: BoardCard[] }) {
       <div className="flex items-center gap-1.5 border-b border-zinc-200 px-2.5 py-1.5">
         <span className="text-[11px] font-semibold uppercase tracking-wider text-zinc-600">{labelStatus(id)}</span>
         <span className="text-[11px] text-zinc-400">{cards.length}</span>
-        {gated ? <span className="ml-auto text-[10px] uppercase text-[#b3401f]">gated</span> : null}
+        {gated ? <span className="ml-auto text-[10px] uppercase text-highlight-strong">gated</span> : null}
       </div>
       <div className="flex min-h-[8rem] flex-1 flex-col gap-1.5 p-1.5">
         {cards.map((c) => (
@@ -177,7 +177,7 @@ function CardView({ card, dragging }: { card: BoardCard; dragging?: boolean }) {
       </div>
       <div className="mt-1 flex flex-wrap items-center gap-1 text-[10.5px] text-zinc-500">
         <span>{labelFormat(card.format)}</span>
-        {card.platform ? <Badge variant="outline" className="text-[10px]">{card.platform}</Badge> : null}
+        {card.platform ? <Badge variant="outline" className="min-w-0 max-w-full overflow-hidden text-[10px]">{card.platform}</Badge> : null}
         {card.publish_date ? <span className="ml-auto font-mono">{fmtDate(card.publish_date, { month: "short", day: "numeric" })}</span> : null}
       </div>
     </div>

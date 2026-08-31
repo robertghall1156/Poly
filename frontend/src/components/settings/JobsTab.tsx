@@ -73,7 +73,7 @@ export function JobsTab() {
                   <div className="font-medium text-zinc-900">{humanize(j.kind)}</div>
                   <div className="font-mono text-[10px] text-zinc-400">
                     {j.id.slice(0, 8)} · attempts {j.attempts}
-                    {j.cloud_override_allowed ? <span className="ml-1 text-[#b3401f]">cloud override</span> : null}
+                    {j.cloud_override_allowed ? <span className="ml-1 text-highlight-strong">cloud override</span> : null}
                   </div>
                 </TD>
                 <TD>
@@ -87,7 +87,7 @@ export function JobsTab() {
                 <TD className="whitespace-nowrap text-xs text-zinc-500">{fmtDateTime(j.created_at)}</TD>
                 <TD className="whitespace-nowrap text-xs text-zinc-500">{fmtDateTime(j.finished_at)}</TD>
                 <TD className="max-w-md text-xs">
-                  {j.error ? <div className="text-red-700">{j.error}</div> : null}
+                  {j.error ? <div className="text-danger">{j.error}</div> : null}
                   {Object.keys(j.result ?? {}).length ? (
                     <button type="button" className="text-accent-strong hover:underline" onClick={() => setExpanded(expanded === j.id ? null : j.id)}>
                       {expanded === j.id ? "hide result" : "show result"}

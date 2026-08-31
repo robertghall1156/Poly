@@ -6,18 +6,21 @@ import { Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 const buttonVariants = cva(
-  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap rounded-md border font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:pointer-events-none disabled:opacity-50",
+  "inline-flex items-center justify-center gap-1.5 whitespace-nowrap border font-heading transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent/40 disabled:pointer-events-none disabled:opacity-45",
   {
     variants: {
       variant: {
-        default: "bg-brand text-white border-brand hover:opacity-90",
-        secondary: "bg-white text-zinc-800 border-zinc-300 hover:bg-zinc-50",
-        ghost: "bg-transparent text-zinc-700 border-transparent hover:bg-zinc-100",
-        accent: "bg-accent text-white border-accent hover:bg-accent-strong",
-        warn: "bg-warn text-white border-warn hover:opacity-90",
-        outlineWarn: "bg-warn-soft text-[#b3401f] border-warn/60 hover:bg-[#fbe0d6]",
-        danger: "bg-white text-red-700 border-red-300 hover:bg-red-50",
-        link: "bg-transparent border-transparent text-accent-strong underline-offset-2 hover:underline px-0",
+        // Primary — filled accent, paper text (Modernist btn-primary)
+        default: "bg-accent text-paper border-accent hover:bg-accent-strong",
+        accent: "bg-accent text-paper border-accent hover:bg-accent-strong",
+        // Secondary — hairline border, transparent bg (Modernist btn-secondary)
+        secondary: "bg-transparent text-ink border-divider hover:bg-ink/7",
+        // Ghost — plain accent text (Modernist btn-ghost)
+        ghost: "bg-transparent text-accent border-transparent hover:bg-accent-soft",
+        warn: "bg-highlight text-ink border-highlight hover:opacity-90",
+        outlineWarn: "bg-transparent text-highlight-strong border-highlight hover:bg-highlight-soft",
+        danger: "bg-transparent text-danger border-danger/50 hover:bg-danger-soft",
+        link: "bg-transparent border-transparent text-accent underline-offset-2 hover:underline px-0",
       },
       size: {
         sm: "h-7 px-2.5 text-xs",

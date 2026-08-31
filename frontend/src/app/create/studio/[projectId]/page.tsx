@@ -269,7 +269,7 @@ export default function StudioEditorPage() {
                   <button type="button" aria-label="Move down" onClick={(e) => { e.stopPropagation(); moveScene(i, 1); }} className="rounded p-0.5 text-zinc-500 hover:bg-zinc-100" disabled={i === scenes.length - 1}>
                     <ArrowDown className="h-3 w-3" />
                   </button>
-                  <button type="button" aria-label="Delete scene" onClick={(e) => { e.stopPropagation(); if (confirm("Delete this scene?")) void deleteScene(i); }} className="rounded p-0.5 text-red-500 hover:bg-red-50">
+                  <button type="button" aria-label="Delete scene" onClick={(e) => { e.stopPropagation(); if (confirm("Delete this scene?")) void deleteScene(i); }} className="rounded p-0.5 text-danger hover:bg-danger-soft">
                     <Trash2 className="h-3 w-3" />
                   </button>
                 </span>

@@ -78,8 +78,8 @@ export function SourcePicker({ value, onChange, showVideo }: { value: SourceSele
             type="button"
             onClick={() => onChange({ type: t, id: "", idea: value.idea })}
             className={cn(
-              "rounded-full border px-3 py-1 text-xs font-medium transition-colors",
-              value.type === t ? "border-accent bg-accent-soft text-accent-strong" : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50",
+              "border px-3 py-1 text-xs font-medium transition-colors",
+              value.type === t ? "border-accent bg-accent-soft text-accent-strong" : "border-divider bg-transparent text-zinc-700 hover:bg-ink/5",
             )}
           >
             {SOURCE_LABEL[t]}

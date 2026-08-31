@@ -71,7 +71,7 @@ function TodayTab() {
           <button
             type="button"
             onClick={() => setTopic(null)}
-            className={cn("rounded-full border px-2.5 py-0.5 text-xs", topic === null ? "border-brand bg-brand text-white" : "border-zinc-300 text-zinc-700 hover:bg-zinc-50")}
+            className={cn("tag transition-colors", topic === null ? "!border-accent !text-accent bg-accent-soft" : "hover:bg-ink/5")}
           >
             All topics
           </button>
@@ -80,9 +80,9 @@ function TodayTab() {
               key={t}
               type="button"
               onClick={() => setTopic(topic === t ? null : t)}
-              className={cn("rounded-full border px-2.5 py-0.5 text-xs", topic === t ? "border-brand bg-brand text-white" : "border-zinc-300 text-zinc-700 hover:bg-zinc-50")}
+              className={cn("tag transition-colors", topic === t ? "!border-accent !text-accent bg-accent-soft" : "hover:bg-ink/5")}
             >
-              {t} <span className="opacity-60">{n}</span>
+              {t} <span className="ml-1 opacity-60">{n}</span>
             </button>
           ))}
         </div>
@@ -95,7 +95,7 @@ function TodayTab() {
         </EmptyState>
       ) : null}
       {rows.length > 0 ? (
-        <div className="rounded-md border border-zinc-200 bg-white px-4">
+        <div>
           {rows.map((s) => (
             <StoryCard key={s.id} story={s} onChange={update} />
           ))}

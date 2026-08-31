@@ -1,5 +1,24 @@
 @import "tailwindcss";
 
+/* ── Archivo variable font ─────────────────────────────────────────────── */
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/archivo-var-latin.woff2") format("woff2");
+  unicode-range: U+0000-00FF, U+0131, U+0152-0153, U+02BB-02BC, U+02C6, U+02DA, U+02DC, U+0304, U+0308, U+0329, U+2000-206F, U+20AC, U+2122, U+2191, U+2193, U+2212, U+2215, U+FEFF, U+FFFD;
+}
+@font-face {
+  font-family: "Archivo";
+  font-style: normal;
+  font-weight: 100 900;
+  font-display: swap;
+  src: url("/fonts/archivo-var-latinext.woff2") format("woff2");
+  unicode-range: U+0100-02BA, U+02BD-02C5, U+02C7-02CC, U+02CE-02D7, U+02DD-02FF, U+0304, U+0308, U+0329, U+1D00-1DBF, U+1E00-1E9F, U+1EF2-1EFF, U+2020, U+20A0-20AB, U+20AD-20C0, U+2113, U+2C60-2C7F, U+A720-A7FF;
+}
+
+/* ── Design tokens ("Modernist"), derived from the runtime brand palette ─ */
 :root {
   /* Brand tokens — overridden at runtime from Settings → Brand */
   --brand-primary: #102a43;
@@ -8,53 +27,183 @@
   --brand-bg: #f8f9fa;
   --brand-highlight: #c89b3c;
 
-  --background: var(--brand-bg);
-  --foreground: #1b2733;
+  /* Modernist roles */
+  --ink: var(--brand-primary);
+  --paper: var(--brand-bg);
+  --color-divider: color-mix(in srgb, var(--ink) 40%, transparent);
+  --color-divider-weak: color-mix(in srgb, var(--ink) 18%, transparent);
+  --color-surface: color-mix(in srgb, var(--ink) 3%, var(--paper));
+  --color-muted: color-mix(in srgb, var(--ink) 55%, transparent);
+  --color-danger: #b3251e;
+
+  --background: var(--paper);
+  --foreground: var(--ink);
   --accent: var(--brand-accent);
-  --warn: #f46543;
+  --warn: var(--brand-highlight);
+
+  --font-heading: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --font-heading-weight: 800;
+
+  --space-1: 4px;
+  --space-2: 8px;
+  --space-3: 12px;
+  --space-4: 16px;
+  --space-6: 24px;
+  --space-8: 32px;
+
+  /* Elevation — soft ink-tinted shadows */
+  --shadow-sm: 0 1px 2px color-mix(in srgb, var(--ink) 14%, transparent);
+  --shadow-md: 0 3px 10px color-mix(in srgb, var(--ink) 16%, transparent);
+  --shadow-lg: 0 12px 32px color-mix(in srgb, var(--ink) 22%, transparent);
 }
 
 @theme inline {
-  --color-background: var(--background);
-  --color-foreground: var(--foreground);
-  --color-brand: var(--brand-primary);
-  --color-brand-soft: color-mix(in srgb, var(--brand-primary) 7%, white);
+  --color-background: var(--paper);
+  --color-foreground: var(--ink);
+  --color-ink: var(--ink);
+  --color-paper: var(--paper);
+  --color-brand: var(--ink);
+  --color-brand-soft: color-mix(in srgb, var(--ink) 7%, var(--paper));
   --color-accent: var(--brand-accent);
-  --color-accent-strong: color-mix(in srgb, var(--brand-accent) 88%, black);
-  --color-accent-soft: color-mix(in srgb, var(--brand-accent) 9%, white);
+  --color-accent-strong: color-mix(in srgb, var(--brand-accent) 82%, var(--ink));
+  --color-accent-soft: color-mix(in srgb, var(--brand-accent) 10%, transparent);
   --color-highlight: var(--brand-highlight);
-  --color-highlight-soft: color-mix(in srgb, var(--brand-highlight) 14%, white);
+  --color-highlight-strong: color-mix(in srgb, var(--brand-highlight) 55%, var(--ink));
+  --color-highlight-soft: color-mix(in srgb, var(--brand-highlight) 14%, transparent);
   --color-secondary: var(--brand-secondary);
-  --color-warn: #f46543;
-  --color-warn-soft: #fdeee9;
-  --font-sans: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+  --color-surface: var(--color-surface);
+  --color-divider: var(--color-divider);
+  --color-divider-weak: var(--color-divider-weak);
+  --color-muted: var(--color-muted);
+  --color-warn: var(--brand-highlight);
+  --color-warn-soft: color-mix(in srgb, var(--brand-highlight) 12%, transparent);
+  --color-warn-strong: color-mix(in srgb, var(--brand-highlight) 55%, var(--ink));
+  --color-danger: var(--color-danger);
+  --color-danger-soft: color-mix(in srgb, var(--color-danger) 8%, var(--paper));
+
+  /* Map the legacy white + zinc utility palette onto ink/paper tonal steps so
+     every existing component picks up brand-derived color automatically. */
+  --color-white: var(--paper);
+  --color-zinc-50: color-mix(in srgb, var(--ink) 3%, var(--paper));
+  --color-zinc-100: color-mix(in srgb, var(--ink) 7%, var(--paper));
+  --color-zinc-200: color-mix(in srgb, var(--ink) 20%, transparent);
+  --color-zinc-300: color-mix(in srgb, var(--ink) 32%, transparent);
+  --color-zinc-400: color-mix(in srgb, var(--ink) 45%, transparent);
+  --color-zinc-500: color-mix(in srgb, var(--ink) 55%, transparent);
+  --color-zinc-600: color-mix(in srgb, var(--ink) 68%, transparent);
+  --color-zinc-700: color-mix(in srgb, var(--ink) 80%, transparent);
+  --color-zinc-800: color-mix(in srgb, var(--ink) 90%, transparent);
+  --color-zinc-900: var(--ink);
+  --color-zinc-950: var(--ink);
+
+  --font-sans: "Archivo", system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
   --font-mono: ui-monospace, SFMono-Regular, Menlo, Consolas, "Liberation Mono", monospace;
+
+  /* Radius 0 everywhere — sharp rectangles */
+  --radius: 0px;
+  --radius-xs: 0px;
+  --radius-sm: 0px;
+  --radius-md: 0px;
+  --radius-lg: 0px;
+  --radius-xl: 0px;
+  --radius-2xl: 0px;
+  --radius-3xl: 0px;
+  --radius-4xl: 0px;
 }
 
-html {
-  color-scheme: light;
-}
+@layer base {
+  html {
+    color-scheme: light;
+  }
 
-body {
-  background: var(--background);
-  color: var(--foreground);
-  font-family: var(--font-sans);
-  font-size: 13.5px;
-  line-height: 1.5;
-}
+  body {
+    background: var(--paper);
+    color: var(--ink);
+    font-family: var(--font-sans);
+    font-size: 14px;
+    line-height: 1.55;
+    font-weight: 400;
+  }
 
-* {
-  border-color: #e4e4e7;
-}
+  h1, h2, h3, h4, h5, h6 {
+    font-family: var(--font-heading);
+    font-weight: var(--font-heading-weight);
+    line-height: 1.12;
+    letter-spacing: -0.015em;
+  }
+  h1 { font-size: 42px; }
+  h2 { font-size: 32px; }
+  h3 { font-size: 25px; }
+  h4 { font-size: 20px; }
+  h5 { font-size: 16px; }
+  h6 { font-size: 13px; letter-spacing: 0.08em; text-transform: uppercase; }
 
-::selection {
-  background: color-mix(in srgb, var(--brand-accent) 18%, white);
-}
+  * {
+    border-color: var(--color-divider-weak);
+  }
 
-input[type="range"] {
-  accent-color: var(--brand-accent);
+  ::selection {
+    background: color-mix(in srgb, var(--brand-accent) 30%, transparent);
+  }
+
+  :focus-visible {
+    outline: 2px solid var(--brand-accent);
+    outline-offset: 2px;
+  }
+
+  input[type="range"] {
+    accent-color: var(--brand-accent);
+  }
 }
 
 .prose-plain p + p {
   margin-top: 0.5rem;
+}
+
+/* ── Modernist component utilities ─────────────────────────────────────── */
+@layer components {
+  /* Uppercase accent kicker line above headlines */
+  .kicker {
+    font-size: 11px;
+    letter-spacing: 0.1em;
+    text-transform: uppercase;
+    color: var(--brand-accent);
+  }
+  /* Right-aligned muted uppercase meta text */
+  .meta {
+    font-size: 11px;
+    letter-spacing: 0.05em;
+    text-transform: uppercase;
+    color: color-mix(in srgb, var(--ink) 50%, transparent);
+  }
+  /* 2px hairline rule between page sections */
+  .rule {
+    height: 2px;
+    border: 0;
+    background: var(--color-divider);
+  }
+  .font-heading {
+    font-family: var(--font-heading);
+    font-weight: var(--font-heading-weight);
+  }
+  /* Outline tags */
+  .tag {
+    display: inline-flex;
+    align-items: center;
+    font-size: 11px;
+    letter-spacing: 0.04em;
+    text-transform: uppercase;
+    padding: 2px 8px;
+    border: 1px solid var(--color-divider);
+    color: color-mix(in srgb, var(--ink) 75%, transparent);
+    white-space: nowrap;
+  }
+  .tag-accent {
+    border-color: var(--brand-accent);
+    color: var(--brand-accent);
+  }
+  .tag-highlight {
+    border-color: var(--brand-highlight);
+    color: color-mix(in srgb, var(--brand-highlight) 55%, var(--ink));
+  }
 }

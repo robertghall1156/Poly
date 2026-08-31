@@ -48,7 +48,7 @@ function SaveBar({ s }: { s: { save: () => void; dirty: boolean; saved: boolean;
       <Button variant="default" onClick={s.save} loading={s.act.busy} disabled={!s.dirty}>
         Save
       </Button>
-      {s.saved ? <span className="text-xs text-emerald-700">Saved.</span> : null}
+      {s.saved ? <span className="text-xs text-accent-strong">Saved.</span> : null}
       <ErrorNotice error={s.act.error} />
     </div>
   );
@@ -60,7 +60,7 @@ function ChipSelect({ options, value, onChange, label }: { options: string[]; va
       {options.map((o) => {
         const on = value.includes(o);
         return (
-          <button key={o} type="button" onClick={() => onChange(on ? value.filter((x) => x !== o) : [...value, o])} className={cn("rounded-full border px-2 py-0.5 text-xs", on ? "border-zinc-800 bg-zinc-800 text-white" : "border-zinc-300 bg-white text-zinc-700 hover:bg-zinc-50")}>
+          <button key={o} type="button" onClick={() => onChange(on ? value.filter((x) => x !== o) : [...value, o])} className={cn("border px-2 py-0.5 text-xs", on ? "border-ink bg-ink text-paper" : "border-divider bg-transparent text-zinc-700 hover:bg-ink/5")}>
             {label ? label(o) : o}
           </button>
         );

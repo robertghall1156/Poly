@@ -10,7 +10,6 @@ import { labelFormat, relTime } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorNotice } from "@/components/ui/notice";
-import { Section } from "@/components/ui/section";
 import { JobStatus } from "@/components/JobStatus";
 import { StoryCard } from "@/components/StoryCard";
 import { StatusBadge } from "@/components/badges";
@@ -25,6 +24,10 @@ function createFlowFor(format: string | undefined): string {
   if (["article", "newsletter"].includes(format)) return "article";
   if (format.endsWith("_post") || format === "x_thread") return "post";
   return "short";
+}
+
+function isContested(s: StoryRowData): boolean {
+  return s.principles.some((p) => p.relation === "challenges" || p.relation === "contradicts");
 }
 
 export default function HomePage() {
@@ -47,67 +50,93 @@ export default function HomePage() {
   };
 
   const d = dash.data;
+  const today = (d?.today ?? []).filter((s) => s.dashboard_action !== "ignored");
+  const lead = today[0];
+  const rest = today.slice(1, 5);
+  const now = new Date();
+  const dateLine = `${now.toLocaleDateString("en-GB", { weekday: "long" })} ${now.getDate()} ${now.toLocaleDateString("en-GB", { month: "long" })}`;
 
   return (
     <div>
-      <div className="mb-5 flex flex-wrap items-start justify-between gap-3">
-        <div>
-          <h1 className="text-lg font-semibold tracking-tight text-brand">Discover the news, think it through, create deliberately.</h1>
-          <p className="mt-0.5 text-[13px] text-zinc-500">
-            Poly follows your{" "}
-            <Link href="/discover?tab=research" className="text-zinc-500 underline decoration-zinc-300 underline-offset-2 hover:text-accent-strong">
-              news sources
-            </Link>
-            , connects stories to what you believe, and nothing is ever posted automatically.
-          </p>
-        </div>
-        <Button variant="default" onClick={runIngest} loading={act.busy}>
+      <div className="mb-1.5 flex items-baseline justify-between gap-4">
+        <span className="kicker">{dateLine}</span>
+        <span className="meta">
+          {d ? `${today.length} ${today.length === 1 ? "story" : "stories"} moved today` : "…"}
+        </span>
+      </div>
+      <div className="flex flex-wrap items-end justify-between gap-3">
+        <h1 className="text-[clamp(40px,4vw,48px)]">What happened</h1>
+        <Button variant="secondary" onClick={runIngest} loading={act.busy} className="mb-1.5">
           Get today&apos;s news
         </Button>
       </div>
+      <hr className="rule mb-7 mt-5" />
+
       <ErrorNotice error={act.error} className="mb-3" />
       {ingestJob ? <JobStatus jobId={ingestJob} label="Getting today's news" className="mb-4" onDone={(j) => j.status === "succeeded" && dash.reload()} /> : null}
       <ErrorNotice error={dash.error} className="mb-3" />
 
-      <Section title="What happened?" description="Today's most relevant stories.">
-        {dash.loading ? <ListSkeleton rows={3} /> : null}
-        {d && d.today.length === 0 ? <EmptyState title="No stories yet.">Press &ldquo;Get today&apos;s news&rdquo; above to fetch the latest.</EmptyState> : null}
-        {d && d.today.length > 0 ? (
-          <div className="rounded-md border border-zinc-200 bg-white px-4">
-            {d.today.slice(0, 5).map((s) => (
-              <StoryCard key={s.id} story={s} onChange={updateStory} />
-            ))}
-          </div>
-        ) : null}
-      </Section>
+      {dash.loading ? <ListSkeleton rows={3} /> : null}
+      {d && today.length === 0 ? <EmptyState title="No stories yet.">Press &ldquo;Get today&apos;s news&rdquo; above to fetch the latest.</EmptyState> : null}
 
-      <div className="grid gap-6 lg:grid-cols-2">
-        <Section title="What should I think about?" description="Stories that test or sharpen what you believe.">
-          {d && d.think_about.length === 0 ? <EmptyState title="Nothing pressing right now." /> : null}
-          {d && d.think_about.length > 0 ? (
-            <div className="rounded-md border border-zinc-200 bg-white px-4">
+      {lead ? <LeadStory story={lead} /> : null}
+
+      {rest.length > 0 ? (
+        <div className="flex flex-col">
+          {rest.map((s) => (
+            <Link key={s.id} href={`/discover/stories/${s.id}`} className="group grid grid-cols-[1fr_auto] gap-6 border-t border-divider py-4">
+              <div className="flex items-baseline gap-2.5">
+                {isContested(s) ? <span className="tag tag-highlight shrink-0">Contested</span> : null}
+                <div className="min-w-0">
+                  <h4 className="mb-1 text-[20px] group-hover:text-accent-strong">{s.title}</h4>
+                  {s.summary ? <p className="line-clamp-1 text-sm text-zinc-600">{s.summary}</p> : null}
+                </div>
+              </div>
+              <div className="meta whitespace-nowrap text-right">
+                {s.topics[0] ? `${s.topics[0]} · ` : ""}
+                {s.article_count} source{s.article_count === 1 ? "" : "s"}
+                <br />
+                {relTime(s.last_updated)}
+              </div>
+            </Link>
+          ))}
+          <div className="border-t border-divider pt-3.5">
+            <Link href="/discover" className="font-heading text-sm text-accent hover:underline">
+              All {d?.counts.stories_3d ?? today.length} stories today
+            </Link>
+          </div>
+        </div>
+      ) : null}
+
+      {d ? (
+        <>
+          <hr className="rule mb-6 mt-10" />
+          <h6 className="mb-4 text-muted">What should I think about?</h6>
+          {d.think_about.length === 0 ? <EmptyState title="Nothing pressing right now." /> : null}
+          {d.think_about.length > 0 ? (
+            <div>
               {d.think_about.slice(0, 3).map((s) => (
                 <StoryCard key={s.id} story={s} onChange={updateStory} compact />
               ))}
             </div>
           ) : null}
-        </Section>
 
-        <Section title="What can I create?" description="The best opportunities right now — one click to start.">
-          {d && d.create.length === 0 ? <EmptyState title="No opportunities scored yet.">They appear once stories are analysed.</EmptyState> : null}
-          {d && d.create.length > 0 ? (
-            <div className="rounded-md border border-zinc-200 bg-white">
-              {d.create.map((s) => {
+          <hr className="rule mb-6 mt-9" />
+          <h6 className="mb-4 text-muted">What can I create?</h6>
+          {d.create.length === 0 ? <EmptyState title="No opportunities scored yet.">They appear once stories are analysed.</EmptyState> : null}
+          {d.create.length > 0 ? (
+            <div className="flex flex-col">
+              {d.create.map((s, i) => {
                 const opp = s.content_potential[0];
                 const flow = createFlowFor(opp?.format || s.recommended_format);
                 return (
-                  <div key={s.id} className="flex items-start gap-3 border-b border-zinc-200 px-4 py-2.5 last:border-b-0">
-                    <div className="min-w-0 flex-1">
-                      <Link href={`/discover/stories/${s.id}`} className="text-[13px] font-medium text-zinc-900 hover:text-accent-strong">
+                  <div key={s.id} className={`grid grid-cols-[1fr_auto] items-center gap-6 py-3.5 ${i > 0 ? "border-t border-divider" : ""}`}>
+                    <div className="min-w-0">
+                      <div className="kicker mb-0.5">{labelFormat(opp?.format || s.recommended_format) || "Short"}</div>
+                      <Link href={`/discover/stories/${s.id}`} className="font-heading text-base text-ink hover:text-accent-strong">
                         {s.title}
                       </Link>
-                      {opp?.angle ? <p className="text-xs text-zinc-600">{opp.angle}</p> : null}
-                      <p className="text-[11px] text-zinc-400">{labelFormat(opp?.format || s.recommended_format) || "Short"}</p>
+                      {opp?.angle ? <p className="text-[13px] text-zinc-600">{opp.angle}</p> : null}
                     </div>
                     <Button size="sm" variant="accent" className="shrink-0" onClick={() => router.push(`/create?format=${flow}&source=story&id=${s.id}`)}>
                       Create
@@ -117,13 +146,74 @@ export default function HomePage() {
               })}
             </div>
           ) : null}
-        </Section>
-      </div>
 
-      <Section title="What am I working on?" description="Pick up where you left off.">
-        {d ? <WorkingOn d={d} /> : null}
-      </Section>
+          <hr className="rule mb-6 mt-9" />
+          <h6 className="mb-4 text-muted">What am I working on?</h6>
+          <WorkingOn d={d} />
+        </>
+      ) : null}
     </div>
+  );
+}
+
+function LeadStory({ story }: { story: StoryRowData }) {
+  const router = useRouter();
+  const act = useAction();
+  const chips = story.principles.slice(0, 3);
+
+  const think = async () => {
+    const sess = await act.run(() => api.startThink({ title: story.title, story_id: story.id, ask_first_question: true }));
+    if (sess) router.push(`/think/${sess.id}`);
+  };
+
+  return (
+    <article className={`mb-9 items-start gap-8 ${chips.length ? "grid lg:grid-cols-[1.15fr_minmax(0,1fr)]" : ""}`}>
+      <div>
+        {story.topics[0] ? <span className="tag">{story.topics[0]}</span> : null}
+        <h2 className="mb-3 mt-2.5 text-[clamp(28px,3vw,36px)] [text-wrap:pretty]">
+          <Link href={`/discover/stories/${story.id}`} className="hover:text-accent-strong">
+            {story.title}
+          </Link>
+        </h2>
+        {story.summary ? <p className="mb-3.5 max-w-[62ch] text-[17px] leading-normal text-ink/80">{story.summary}</p> : null}
+        {story.why_it_matters ? (
+          <p className="mb-5 max-w-[68ch] text-[15px]">
+            <strong className="font-heading">Why it matters — </strong>
+            {story.why_it_matters}
+          </p>
+        ) : null}
+        <div className="flex flex-wrap items-center gap-2.5">
+          <Button variant="accent" onClick={() => router.push(`/discover/stories/${story.id}`)}>
+            Understand
+          </Button>
+          <Button variant="secondary" onClick={think} loading={act.busy}>
+            Think about this
+          </Button>
+          <Button variant="ghost" onClick={() => router.push(`/create?source=story&id=${story.id}`)}>
+            Create from this
+          </Button>
+        </div>
+        <div className="meta mt-4">
+          {story.article_count} source{story.article_count === 1 ? "" : "s"}
+          {story.primary_sources.length ? ` · ${story.primary_sources.length} primary` : ""}
+          {` · moved ${relTime(story.last_updated)}`}
+        </div>
+        <ErrorNotice error={act.error} className="mt-3" />
+      </div>
+      {chips.length ? (
+        <div className="hidden flex-col gap-2 border-l-2 border-divider pl-6 lg:flex">
+          <span className="meta">Touches what you believe</span>
+          {chips.map((p) => (
+            <Link key={p.id} href={`/think/beliefs/${p.id}`} className="flex min-w-0 items-baseline gap-1.5 hover:opacity-80">
+              <span className={`tag ${p.relation === "challenges" || p.relation === "contradicts" ? "tag-highlight" : "tag-accent"} min-w-0 overflow-hidden`}>
+                <span className="truncate">{p.title}</span>
+              </span>
+              <span className="shrink-0 text-[11px] text-muted">{p.relation}</span>
+            </Link>
+          ))}
+        </div>
+      ) : null}
+    </article>
   );
 }
 
@@ -133,44 +223,39 @@ function WorkingOn({ d }: { d: Dashboard }) {
   if (empty)
     return (
       <EmptyState title="Nothing in progress.">
-        Think through a story above, or press <span className="font-medium">+ Create</span> in the top bar to start something.
+        Think through a story above, or press <span className="font-medium">Create</span> in the sidebar to start something.
       </EmptyState>
     );
-  return (
-    <div className="grid gap-3 md:grid-cols-3">
-      <div className="rounded-md border border-zinc-200 bg-white">
-        <div className="border-b border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700">Ideas I&apos;m thinking through</div>
-        {c.think_sessions.length === 0 ? <p className="px-3 py-2 text-xs text-zinc-400">None right now.</p> : null}
-        {c.think_sessions.map((t) => (
-          <Link key={t.id} href={`/think/${t.id}`} className="block border-b border-zinc-100 px-3 py-2 last:border-b-0 hover:bg-zinc-50">
-            <div className="truncate text-[13px] font-medium text-zinc-900">{t.title}</div>
-            <div className="text-xs text-zinc-500">
-              {t.exchanges} exchange{t.exchanges === 1 ? "" : "s"} · {relTime(t.updated_at)}
-            </div>
-          </Link>
-        ))}
-      </div>
-      <div className="rounded-md border border-zinc-200 bg-white">
-        <div className="border-b border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700">Positions in draft</div>
-        {c.briefs.length === 0 ? <p className="px-3 py-2 text-xs text-zinc-400">No drafts.</p> : null}
-        {c.briefs.map((b) => (
-          <Link key={b.id} href={`/think/positions/${b.id}`} className="block border-b border-zinc-100 px-3 py-2 last:border-b-0 hover:bg-zinc-50">
-            <div className="truncate text-[13px] font-medium text-zinc-900">{b.issue}</div>
-            <div className="text-xs text-zinc-500">Confidence {Math.round(b.confidence * 100)}%</div>
-          </Link>
-        ))}
-      </div>
-      <div className="rounded-md border border-zinc-200 bg-white">
-        <div className="border-b border-zinc-200 px-3 py-1.5 text-xs font-semibold text-zinc-700">Drafts in progress</div>
-        {c.content.length === 0 ? <p className="px-3 py-2 text-xs text-zinc-400">No drafts in progress.</p> : null}
-        {c.content.map((it) => (
-          <Link key={it.id} href={`/library/content/${it.id}`} className="flex items-center gap-2 border-b border-zinc-100 px-3 py-2 last:border-b-0 hover:bg-zinc-50">
-            <span className="min-w-0 flex-1 truncate text-[13px] font-medium text-zinc-900">{it.title}</span>
-            <span className="text-[11px] text-zinc-500">{labelFormat(it.format)}</span>
-            {it.status ? <StatusBadge status={it.status} /> : null}
-          </Link>
-        ))}
-      </div>
-    </div>
-  );
+  const rows: React.ReactNode[] = [];
+  for (const t of c.think_sessions) {
+    rows.push(
+      <Link key={`t-${t.id}`} href={`/think/${t.id}`} className="flex items-center gap-3.5 border-t border-divider py-3.5 first:border-t-0">
+        <span className="tag shrink-0">Idea</span>
+        <span className="min-w-0 flex-1 truncate font-heading text-base text-ink">{t.title}</span>
+        <span className="text-xs text-muted">
+          {t.exchanges} exchange{t.exchanges === 1 ? "" : "s"} · {relTime(t.updated_at)}
+        </span>
+      </Link>,
+    );
+  }
+  for (const b of c.briefs) {
+    rows.push(
+      <Link key={`b-${b.id}`} href={`/think/positions/${b.id}`} className="flex items-center gap-3.5 border-t border-divider py-3.5 first:border-t-0">
+        <span className="tag tag-accent shrink-0">Position</span>
+        <span className="min-w-0 flex-1 truncate font-heading text-base text-ink">{b.issue}</span>
+        <span className="text-xs text-muted">Confidence {Math.round(b.confidence * 100)}%</span>
+      </Link>,
+    );
+  }
+  for (const it of c.content) {
+    rows.push(
+      <Link key={`c-${it.id}`} href={`/library/content/${it.id}`} className="flex items-center gap-3.5 border-t border-divider py-3.5 first:border-t-0">
+        <span className="tag shrink-0">Draft</span>
+        <span className="min-w-0 flex-1 truncate font-heading text-base text-ink">{it.title}</span>
+        <span className="text-xs text-muted">{labelFormat(it.format)}</span>
+        {it.status ? <StatusBadge status={it.status} /> : null}
+      </Link>,
+    );
+  }
+  return <div className="flex flex-col [&>*:first-child]:border-t-0">{rows}</div>;
 }

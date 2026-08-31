@@ -391,7 +391,7 @@ function FeedsTab() {
                 </TD>
                 <TD className="text-right tabular-nums">{f.article_count}</TD>
                 <TD className="whitespace-nowrap text-xs text-zinc-500">{f.last_fetched_at ? relTime(f.last_fetched_at) : "never"}</TD>
-                <TD className="max-w-xs text-xs text-red-700">{f.last_error ? <span className="line-clamp-2" title={f.last_error}>{f.last_error}</span> : <span className="text-zinc-400">—</span>}</TD>
+                <TD className="max-w-xs text-xs text-danger">{f.last_error ? <span className="line-clamp-2" title={f.last_error}>{f.last_error}</span> : <span className="text-zinc-400">—</span>}</TD>
                 <TD className="whitespace-nowrap">
                   <Button size="sm" onClick={() => fetchNow(f)}>
                     Fetch now

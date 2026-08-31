@@ -90,7 +90,7 @@ export function GenerateContentDialog({ open, onClose, defaults, onCreated }: { 
       }
     >
       <div className="space-y-3">
-        {cloud ? <p className="rounded border border-warn/50 bg-warn-soft px-2 py-1 text-xs text-[#9a3a1c]">Cloud AI is enabled. Story text, brief and principles may be sent to an external provider.</p> : null}
+        {cloud ? <p className="rounded border border-warn/50 bg-warn-soft px-2 py-1 text-xs text-highlight-strong">Cloud AI is enabled. Story text, brief and principles may be sent to an external provider.</p> : null}
         <div className="grid grid-cols-2 gap-3">
           <Field label="Format">
             <Select value={format} onChange={(e) => setFormat(e.target.value)} className="w-full">

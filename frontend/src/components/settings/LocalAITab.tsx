@@ -63,13 +63,13 @@ export function LocalAITab({ settings }: { settings: AllSettings | null }) {
               {d.runtimes.length === 0 ? <EmptyState title="No runtimes detected.">Install Ollama or LM Studio, start it, then refresh.</EmptyState> : null}
               {d.runtimes.map((r) => (
                 <div key={r.runtime} className="flex items-center gap-3 rounded-md border border-zinc-200 bg-white px-3 py-2 text-[13px]">
-                  <span className={cn("h-2 w-2 rounded-full", r.running ? "bg-emerald-500" : "bg-zinc-300")} />
+                  <span className={cn("h-2 w-2 rounded-full", r.running ? "bg-accent" : "bg-zinc-300")} />
                   <span className="font-medium text-zinc-900">{r.runtime}</span>
                   <span className="font-mono text-xs text-zinc-500">{r.endpoint}</span>
                   <span className="ml-auto text-xs text-zinc-500">
                     {r.running ? `running${r.version ? ` · v${r.version}` : ""} · ${r.model_count} models` : "not running"}
                   </span>
-                  {r.error ? <span className="text-xs text-red-700">{r.error}</span> : null}
+                  {r.error ? <span className="text-xs text-danger">{r.error}</span> : null}
                 </div>
               ))}
             </div>
@@ -101,7 +101,7 @@ export function LocalAITab({ settings }: { settings: AllSettings | null }) {
                           <div className="font-medium text-zinc-900">{m.name}</div>
                           <div className="font-mono text-[11px] text-zinc-400">{m.endpoint}</div>
                           {m.locality !== "local" ? <Badge variant="warn">{m.locality}</Badge> : null}
-                          {errors[m.id] ? <div className="text-xs text-red-700">{errors[m.id]}</div> : null}
+                          {errors[m.id] ? <div className="text-xs text-danger">{errors[m.id]}</div> : null}
                         </TD>
                         <TD className="text-xs">{m.runtime}</TD>
                         <TD className="text-right text-xs tabular-nums">{fmtBytes(m.size_bytes)}</TD>
@@ -115,7 +115,7 @@ export function LocalAITab({ settings }: { settings: AllSettings | null }) {
                                   key={tc}
                                   type="button"
                                   onClick={() => patch(m, { tasks: on ? m.tasks.filter((x) => x !== tc) : [...m.tasks, tc] })}
-                                  className={cn("rounded border px-1.5 text-[10px] font-medium", on ? "border-accent bg-accent-soft text-[#0f6f74]" : "border-zinc-200 bg-white text-zinc-400 hover:text-zinc-700")}
+                                  className={cn("rounded border px-1.5 text-[10px] font-medium", on ? "border-accent bg-accent-soft text-accent-strong" : "border-zinc-200 bg-white text-zinc-400 hover:text-zinc-700")}
                                 >
                                   {tc}
                                 </button>
@@ -131,16 +131,16 @@ export function LocalAITab({ settings }: { settings: AllSettings | null }) {
                         </TD>
                         <TD className="text-xs">
                           {m.last_ok_at ? (
-                            <div className="text-emerald-700">
+                            <div className="text-accent-strong">
                               ok {relTime(m.last_ok_at)}
                               {m.last_latency_ms != null ? ` · ${m.last_latency_ms.toFixed(0)} ms` : ""}
                             </div>
                           ) : (
                             <div className="text-zinc-400">untested</div>
                           )}
-                          {m.last_error ? <div className="max-w-[12rem] truncate text-red-700" title={m.last_error}>{m.last_error}</div> : null}
+                          {m.last_error ? <div className="max-w-[12rem] truncate text-danger" title={m.last_error}>{m.last_error}</div> : null}
                           {t && t !== "running" ? (
-                            <div className={t.ok ? "text-emerald-700" : "text-red-700"}>
+                            <div className={t.ok ? "text-accent-strong" : "text-danger"}>
                               test: {t.ok ? "ok" : "failed"}
                               {t.latency_ms != null ? ` · ${Number(t.latency_ms).toFixed(0)} ms` : ""}
                               {t.detail ? ` · ${t.detail}` : ""}
@@ -267,7 +267,7 @@ function AddModelForm({ tasks, onAdded }: { tasks: string[]; onAdded: () => void
             {tasks.map((t) => {
               const on = f.tasks.includes(t);
               return (
-                <button key={t} type="button" onClick={() => setF({ ...f, tasks: on ? f.tasks.filter((x) => x !== t) : [...f.tasks, t] })} className={cn("rounded border px-1.5 text-[11px] font-medium", on ? "border-accent bg-accent-soft text-[#0f6f74]" : "border-zinc-200 bg-white text-zinc-400")}>
+                <button key={t} type="button" onClick={() => setF({ ...f, tasks: on ? f.tasks.filter((x) => x !== t) : [...f.tasks, t] })} className={cn("rounded border px-1.5 text-[11px] font-medium", on ? "border-accent bg-accent-soft text-accent-strong" : "border-zinc-200 bg-white text-zinc-400")}>
                   {t}
                 </button>
               );
