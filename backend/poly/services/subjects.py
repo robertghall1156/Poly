@@ -101,6 +101,16 @@ def _clean(phrase: str) -> str:
     return re.sub(r"\s+", " ", " ".join(words)).strip(" .,:;—-'’\"“”")
 
 
+def _is_shouting(chunk: str) -> bool:
+    """ALL-CAPS carries no capitalisation signal — every word reads as a proper noun.
+
+    Slide headlines are set in caps, so without this a headline becomes a subject and the
+    picture search runs against "WHAT DOES THIS REVEAL" instead of the person it is about.
+    """
+    letters = [c for c in chunk if c.isalpha()]
+    return len(letters) > 6 and not any(c.islower() for c in letters)
+
+
 def _is_nameable(phrase: str) -> bool:
     words = phrase.split()
     if not words:
@@ -124,6 +134,7 @@ def extract(texts: list[str], *, limit: int = 8) -> list[Subject]:
         seen_here = {
             _clean(m.group(1))
             for chunk in re.split(r"[.;:!?\n]", text or "")
+            if not _is_shouting(chunk)
             for m in _RUN.finditer(chunk)
         }
         for phrase in seen_here:

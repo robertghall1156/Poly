@@ -32,7 +32,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
-from ..models import Image, VideoProject
+from ..models import Article, Image, VideoProject
 from ..providers.base import ImageCandidate, PrivacyViolation, ProviderError
 from ..providers.image.local_generative import LocalGenerativeImageProvider
 from ..providers.image_search import all_providers
@@ -264,15 +264,34 @@ def infer_symbol(scene: dict[str, Any], context: str = "") -> dict[str, Any] | N
 
 
 def deck_subjects(db: Session, project: VideoProject) -> list[Subject]:
-    """Who and what the reporting behind this deck is about."""
+    """Who and what the reporting behind this deck is about.
+
+    A deck is often written without a story attached — from a principle, a brief, or an idea —
+    and its own copy is far too thin to rank subjects from: one mention of a name in a title
+    is not evidence of anything. So the coverage is found in the news already ingested,
+    matched on the deck's own distinctive names.
+    """
     item = project.content_item
     texts: list[str] = [item.title or "", project.caption or ""]
+    texts += [f"{s.get('on_screen_text', '')}. {s.get('subtext', '')}" for s in (project.scenes or [])]
+
     story = item.story if getattr(item, "story_id", None) else None
     if story is not None:
         texts += [story.title or "", story.summary or "", story.why_it_matters or ""]
         texts += [a.title or "" for a in getattr(story, "articles", [])[:20]]
-    texts += [f"{s.get('on_screen_text', '')} {s.get('subtext', '')}" for s in (project.scenes or [])]
+    else:
+        texts += _related_coverage(db, texts)
     return extract([x for x in texts if x])
+
+
+def _related_coverage(db: Session, texts: list[str], *, limit: int = 40) -> list[str]:
+    """Headlines from the ingested news that name the same things this deck does."""
+    seeds = {s.name for s in extract(texts, limit=4)}
+    if not seeds:
+        return []
+    rows = db.execute(select(Article.title).order_by(Article.published_at.desc()).limit(600)).scalars().all()
+    hits = [t for t in rows if t and any(seed.lower() in t.lower() for seed in seeds)]
+    return hits[:limit]
 
 
 def plan_scene_visual(scene: dict[str, Any], context: str = "", cast: list[Subject] | None = None) -> dict[str, Any]:
