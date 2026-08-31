@@ -81,6 +81,15 @@ def rank(file_name: str, *, is_lead: bool = False, credit: str = "") -> int:
     return score
 
 
+_THUMB_WIDTH = re.compile(r"/(\d{3,4})px-")
+
+
+def small(url: str, width: int = 320) -> str:
+    """A grid of 1920px photographs takes seconds to paint. Commons serves any width from the
+    same path, so ask for a thumbnail-sized one for the picker."""
+    return _THUMB_WIDTH.sub(f"/{width}px-", url or "", count=1)
+
+
 def _plain(value: Any) -> str:
     if not isinstance(value, dict):
         return ""
@@ -180,7 +189,7 @@ class WikipediaImageProvider(ImageSearchProvider):
                 ),
                 ImageCandidate(
                     url=info.get("thumburl") or info.get("url", ""),
-                    thumb_url=info.get("thumburl", ""),
+                    thumb_url=small(info.get("thumburl", "")),
                     # the article is the subject, so name the candidate for it — the relevance
                     # gate reads this, and "Donald Trump — <file>" is what it is a picture of
                     title=f"{page} — {stem}",
