@@ -126,3 +126,53 @@ def test_task_fallback_when_only_large_model(db):
         db.query(LocalModel).filter(LocalModel.runtime == "mock").update({"enabled": True})
         db.delete(big)
         db.commit()
+
+
+def test_stopped_runtime_does_not_undetect_its_models(fake_ollama, db, monkeypatch):
+    """A stopped Ollama must not flag its installed models as missing — that used to leave the
+    router with nothing to route to even after the runtime came back."""
+    from poly.config import get_settings
+    from poly.models import LocalModel
+    from poly.providers import registry
+
+    monkeypatch.setattr(get_settings(), "ollama_url", fake_ollama)
+    registry.detect_and_register(db)
+    live = db.query(LocalModel).filter(LocalModel.runtime == "ollama").all()
+    assert live and all(m.detected for m in live)
+
+    # runtime goes away (nothing listening on this port)
+    monkeypatch.setattr(get_settings(), "ollama_url", "http://127.0.0.1:1")
+    registry.detect_and_register(db)
+    after = db.query(LocalModel).filter(LocalModel.runtime == "ollama").all()
+    assert all(m.detected for m in after), "models were wrongly marked missing while the runtime was down"
+
+    # a model genuinely removed while the runtime IS up must still be flagged
+    monkeypatch.setattr(get_settings(), "ollama_url", fake_ollama)
+    ghost = LocalModel(name="removed-model:7b", runtime="ollama", endpoint=fake_ollama, tasks=["FAST"], enabled=True, detected=True)
+    db.add(ghost)
+    db.commit()
+    registry.detect_and_register(db)
+    db.refresh(ghost)
+    assert ghost.detected is False
+    for m in db.query(LocalModel).filter(LocalModel.runtime == "ollama").all():
+        db.delete(m)
+    db.commit()
+
+
+def test_offline_hint_tells_the_owner_what_to_do(db, monkeypatch):
+    from poly.config import get_settings
+    from poly.providers import registry
+
+    monkeypatch.setattr(get_settings(), "ollama_url", "http://127.0.0.1:1")
+    monkeypatch.setattr(get_settings(), "openai_compat_urls", "")
+    hint = registry.offline_hint(db)
+    assert "Ollama isn't running" in hint and "ollama serve" in hint
+
+
+def test_status_endpoint_reports_offline(client):
+    r = client.get("/api/local-ai/status")
+    assert r.status_code == 200
+    body = r.json()
+    assert "chat_ready" in body and "runtimes" in body
+    assert body["any_runtime_running"] is False  # nothing listening in the test environment
+    assert "Ollama" in body["hint"]

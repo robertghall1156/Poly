@@ -119,6 +119,24 @@ def local_ai(db: Session = Depends(get_db)) -> dict[str, Any]:
     }
 
 
+@router.get("/local-ai/status")
+def local_ai_status(db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Live, cheap check the UI can poll: is there anything local to think with right now?"""
+    statuses = registry.chat_runtime_status()
+    assignments = registry.recommend_assignments(db)
+    chat_ready = bool(statuses and any(s["running"] for s in statuses)) and any(
+        assignments.get(t) for t in ("REASONING", "WRITING", "FAST")
+    )
+    return {
+        "runtimes": statuses,
+        "any_runtime_running": any(s["running"] for s in statuses),
+        "chat_ready": chat_ready,
+        "assignments": assignments,
+        "hint": "" if chat_ready else registry.offline_hint(db),
+        "transcription_ready": bool(assignments.get("TRANSCRIPTION")),
+    }
+
+
 @router.post("/local-ai/refresh")
 def refresh_models(db: Session = Depends(get_db)) -> dict[str, Any]:
     res = registry.detect_and_register(db)

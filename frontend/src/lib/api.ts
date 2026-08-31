@@ -48,6 +48,7 @@ import type {
   VideoDetail,
   VideoFolder,
   VideoListItem,
+  LocalAIStatus,
 } from "./types";
 
 export const API_BASE = process.env.NEXT_PUBLIC_POLY_API ?? "http://localhost:8000";
@@ -123,6 +124,7 @@ export const api = {
   privacy: () => get<Privacy>("/settings/privacy"),
   patchPrivacy: (body: Partial<Privacy> & { confirm_cloud?: boolean }) => patch<Privacy>("/settings/privacy", body),
   localAI: () => get<LocalAI>("/local-ai"),
+  localAIStatus: () => get<LocalAIStatus>("/local-ai/status"),
   refreshLocalAI: () => post<Record<string, unknown>>("/local-ai/refresh"),
   testModel: (id: string) => post<ModelTestResult>(`/local-ai/models/${id}/test`),
   patchModel: (id: string, body: Partial<Pick<LocalModel, "tasks" | "enabled" | "priority" | "fallback_model_id" | "context_window">>) => patch<LocalModel>(`/local-ai/models/${id}`, body),

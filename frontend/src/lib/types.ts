@@ -892,3 +892,12 @@ export interface MemeRenderResult extends ImageRecord {
   content_item_id: string | null;
   file_url: string;
 }
+
+export interface LocalAIStatus {
+  runtimes: { runtime: string; endpoint: string; running: boolean }[];
+  any_runtime_running: boolean;
+  chat_ready: boolean;
+  assignments: Record<string, string | null>;
+  hint: string;
+  transcription_ready: boolean;
+}

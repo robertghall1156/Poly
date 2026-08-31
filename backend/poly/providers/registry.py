@@ -197,10 +197,20 @@ def detect_and_register(db: Session) -> dict[str, Any]:
             row.capabilities = {**(row.capabilities or {}), **(m.capabilities or {}), "family": m.family}
             if not row.tasks:
                 row.tasks = tasks
-    # mark models that disappeared
+    # Mark models that genuinely disappeared — but ONLY for runtimes that answered this scan.
+    # A stopped Ollama must not flag its whole model list as missing: the models are still
+    # installed, and un-detecting them leaves the router with nothing to route to long after
+    # the runtime comes back.
+    live_runtimes = {rt.runtime for rt in runtimes if rt.running and not rt.error}
     for row in db.execute(select(LocalModel).where(LocalModel.locality == "local")).scalars():
-        if (row.name, row.runtime, row.endpoint) not in seen and row.runtime != "mock":
-            row.detected = False
+        if row.runtime == "mock":
+            continue
+        if row.runtime in live_runtimes:
+            if (row.name, row.runtime, row.endpoint) not in seen:
+                row.detected = False
+        elif not row.detected:
+            # runtime is down; keep what we knew about it so it works again on restart
+            row.detected = True
 
     if os.environ.get("POLY_MOCK_LLM") == "1":
         _ensure_mock(db)
@@ -242,6 +252,55 @@ def recommend_assignments(db: Session) -> dict[str, str | None]:
 # Router
 # ---------------------------------------------------------------------------
 TASK_FALLBACKS = {"FAST": ["WRITING", "REASONING"], "WRITING": ["REASONING", "FAST"], "REASONING": ["WRITING", "FAST"]}
+
+_LAST_AUTO_SCAN = 0.0
+AUTO_SCAN_INTERVAL = 20.0  # seconds; only used when the router finds nothing to run
+
+
+def chat_runtime_status() -> list[dict[str, Any]]:
+    """Fast liveness check of the local chat runtimes (no model enumeration).
+
+    Connection-refused answers instantly, so this is cheap enough to call from the UI.
+    """
+    cfg = get_settings()
+    out = [{"runtime": "ollama", "endpoint": cfg.ollama_url, "running": OllamaProvider(cfg.ollama_url, timeout=2.0).health()}]
+    for url in cfg.openai_compat_url_list:
+        runtime = "lmstudio" if ":1234" in url else "openai_compat"
+        out.append({"runtime": runtime, "endpoint": url, "running": OpenAICompatibleProvider(url, runtime=runtime, name=runtime, timeout=2.0).health()})
+    return out
+
+
+def offline_hint(db: Session) -> str:
+    """A sentence telling the owner exactly what to do when nothing can run."""
+    statuses = chat_runtime_status()
+    if any(s["running"] for s in statuses):
+        registered = db.execute(select(LocalModel).where(LocalModel.locality == "local")).scalars().all()
+        if not registered:
+            return "A local runtime is reachable but no models are registered — open Settings → Local AI and press Refresh local models."
+        return ("A local runtime is reachable but no model is assigned to this task. "
+                "Open Settings → Local AI, press Refresh local models, and check the task assignments.")
+    ollama = next((s for s in statuses if s["runtime"] == "ollama"), None)
+    where = ollama["endpoint"] if ollama else "http://localhost:11434"
+    return (f"Ollama isn't running (nothing answering at {where}). Start the Ollama app — or run `ollama serve` "
+            "in a terminal — and try again. Poly keeps everything local, so it has nothing to think with until a runtime is up.")
+
+
+def ensure_models(db: Session) -> bool:
+    """Called when the router finds no candidates: re-scan runtimes so a just-started
+    Ollama is picked up without the owner having to press Refresh. Rate-limited."""
+    global _LAST_AUTO_SCAN
+    now = time.time()
+    if now - _LAST_AUTO_SCAN < AUTO_SCAN_INTERVAL:
+        return False
+    _LAST_AUTO_SCAN = now
+    if not any(s["running"] for s in chat_runtime_status()):
+        return False
+    try:
+        detect_and_register(db)
+        return True
+    except Exception as e:  # detection must never turn into a hard failure here
+        log.warning("auto re-detection failed: %s", e)
+        return False
 
 
 def candidates(db: Session, task: str, *, include_cloud: bool = False) -> list[LocalModel]:
@@ -287,15 +346,16 @@ def build_provider(row: LocalModel) -> LLMProvider | EmbeddingProvider | Transcr
 
 
 class NoModelAvailable(ProviderError):
-    def __init__(self, task: str, failures: list[str]):
-        msg = f"No local model could complete task {task}."
+    def __init__(self, task: str, failures: list[str], hint: str = ""):
+        msg = f"No local model could run this ({task})."
+        if hint:
+            msg += " " + hint
         if failures:
             msg += " Tried: " + "; ".join(failures)
-        else:
-            msg += " No enabled local model is assigned to this task (Settings → Local AI)."
         super().__init__(msg, provider="router", retryable=True)
         self.task = task
         self.failures = failures
+        self.hint = hint
 
 
 class Router:
@@ -331,6 +391,9 @@ class Router:
         preferred_model: str | None = None,
     ) -> LLMResult:
         rows = candidates(self.db, task, include_cloud=allow_cloud and self.policy.cloud_ai_permitted)
+        if not rows and ensure_models(self.db):
+            # a runtime came back online since the last scan — pick it up without a manual refresh
+            rows = candidates(self.db, task, include_cloud=allow_cloud and self.policy.cloud_ai_permitted)
         if preferred_model:
             rows.sort(key=lambda r: 0 if r.name == preferred_model else 1)
         failures: list[str] = []
@@ -355,7 +418,7 @@ class Router:
                 self._record(row, False, error=str(e))
                 failures.append(f"{row.runtime}:{row.name} → {e}")
                 continue
-        raise NoModelAvailable(task, failures)
+        raise NoModelAvailable(task, failures, hint=offline_hint(self.db))
 
     def embedding_model(self) -> tuple[EmbeddingProvider, str]:
         rows = candidates(self.db, "EMBEDDING")
