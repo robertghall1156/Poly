@@ -413,7 +413,9 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
             row = generate_illustration(db, plan["query"], mood=plan.get("mood", ""), content_item_id=project.content_item_id)
 
         if row is not None:
-            used.add(str((row.params or {}).get("url") or row.path))
+            # Both identifiers: the library is matched by path and a fresh fetch by url, and
+            # recording only one of them let every slide in the deck reuse the same picture.
+            used.update({str(row.path), str((row.params or {}).get("url") or "")} - {""})
             scene["visual_type"] = "image"
             scene["role"] = "image"
             scene["visual"] = {
@@ -468,7 +470,7 @@ def _from_library(db: Session, query: str, *, exclude: set[str], subject: Subjec
     rows = db.execute(select(Image).where(Image.label.in_(("photo", "illustration"))).order_by(Image.created_at.desc()).limit(200)).scalars().all()
     best: tuple[int, Image] | None = None
     for row in rows:
-        if row.path in exclude or not row.path:
+        if not row.path or row.path in exclude or str((row.params or {}).get("url") or "") in exclude:
             continue
         hay = f"{row.title} {row.prompt}"
         if subject is not None:

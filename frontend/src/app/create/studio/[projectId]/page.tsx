@@ -331,21 +331,6 @@ export default function StudioEditorPage() {
 
         {/* Properties */}
         <div className="space-y-3">
-          {scene ? (
-            <SceneProperties
-              key={selected}
-              scene={scene}
-              onChange={(patch) => updateScene(selected, patch)}
-              onRegenerate={(instruction) => regenerate(selected, instruction)}
-              busy={act.busy}
-              projectId={projectId}
-              sceneIndex={selected}
-              onAttached={() => {
-                void project.reload();
-                setVersion((x) => x + 1);
-              }}
-            />
-          ) : null}
           <div className="rounded-md border border-zinc-200 bg-white p-3">
             <p className="kicker mb-2 text-zinc-500">Pictures</p>
             <div className="max-h-[420px]">
@@ -361,6 +346,21 @@ export default function StudioEditorPage() {
               />
             </div>
           </div>
+          {scene ? (
+            <SceneProperties
+              key={selected}
+              scene={scene}
+              onChange={(patch) => updateScene(selected, patch)}
+              onRegenerate={(instruction) => regenerate(selected, instruction)}
+              busy={act.busy}
+              projectId={projectId}
+              sceneIndex={selected}
+              onAttached={() => {
+                void project.reload();
+                setVersion((x) => x + 1);
+              }}
+            />
+          ) : null}
           <details className="rounded-md border border-zinc-200 bg-white px-3 py-2">
             <summary className="cursor-pointer text-xs font-medium text-zinc-600 hover:text-zinc-900">Advanced</summary>
             <AdvancedPanel project={p} onSaved={(proj) => project.setData({ ...proj, scenes: p.scenes })} />

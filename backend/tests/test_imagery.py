@@ -369,3 +369,31 @@ def test_article_images_are_ranked_before_they_are_offered():
     assert portrait > plain and signing > plain, "doing the job beats merely existing"
     assert yearbook < plain, "a school photo is not a picture of a presidency"
     assert graph < 0 and ai < 0, "charts and generated art are not photographs of anyone"
+
+
+def test_a_deck_does_not_put_the_same_picture_on_every_slide(db, wiki, monkeypatch):
+    """The library is matched by file path and a fresh fetch by url. Recording only one of them
+    meant the exclusion set never matched a library hit, so slide 1's picture was reused on
+    every slide after it — a deck of the same face, seven times."""
+    from poly.models import ContentItem, VideoProject  # noqa: PLC0415
+
+    monkeypatch.setattr(imagery, "all_providers", lambda: [wiki])
+    item = ContentItem(title="Trump renames Lake Ontario", format="infographic", status="SCRIPTING")
+    db.add(item)
+    db.flush()
+    project = VideoProject(
+        content_item_id=item.id, kind="carousel", format="news_explainer", target_seconds=30,
+        platform="instagram_post", caption="Trump signs an order renaming Lake Ontario.",
+        scenes=[
+            {"order": i, "duration": 4, "on_screen_text": t, "subtext": "", "visual_type": "text",
+             "visual": {}, "narration": "", "animation": "fade", "background": "auto", "emphasis": [], "source": ""}
+            for i, t in enumerate(["Trump acted alone", "Trump and the lake", "Trump again"])
+        ],
+    )
+    db.add(project)
+    db.commit()
+
+    imagery.add_imagery(db, project)
+    paths = [str((s.get("visual") or {}).get("path") or "") for s in project.scenes]
+    with_pictures = [p for p in paths if p]
+    assert len(with_pictures) == len(set(with_pictures)), f"the same picture landed on several slides: {paths}"
