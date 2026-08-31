@@ -312,3 +312,43 @@ def test_search_drops_off_subject_candidates(db, wiki, monkeypatch):
     assert len(filtered) < len(unfiltered)
     assert all("trump" in c["title"].lower() for c in filtered)
     assert all(c["match_score"] > 0 for c in filtered)
+
+
+def test_a_picture_that_does_not_depict_the_subject_is_replaced(db, wiki, monkeypatch, tmp_path):
+    """The wrong pictures that already shipped carry no marker — they predate the idea of one.
+    They still have to go, while anything pinned by hand survives untouched."""
+    from poly.models import ContentItem, VideoProject  # noqa: PLC0415
+
+    monkeypatch.setattr(imagery, "all_providers", lambda: [wiki])
+    stale = tmp_path / "src-heather-cox-richardson-54119595.jpg"
+    PILImage.new("RGB", (400, 300), (10, 20, 30)).save(stale)
+
+    item = ContentItem(title="Trump renames Lake Ontario to Lake America", format="infographic", status="SCRIPTING")
+    db.add(item)
+    db.flush()
+    project = VideoProject(
+        content_item_id=item.id, kind="carousel", format="my_take", target_seconds=30, platform="instagram_post",
+        caption="Trump signs an order renaming Lake Ontario. Trump's arch. Trump's name.",
+        scenes=[
+            # exactly the shape that shipped: a picture, no auto flag, no query, off subject
+            {"order": 0, "duration": 4, "on_screen_text": "WHY DOES TRUMP'S FOCUS MATTER?", "subtext": "", "visual_type": "image",
+             "visual": {"path": str(stale), "credit": "nordique · BY 2.0"}, "narration": "", "animation": "fade",
+             "background": "auto", "emphasis": [], "source": ""},
+            {"order": 1, "duration": 4, "on_screen_text": "Lake Ontario", "subtext": "", "visual_type": "image",
+             "visual": {"path": str(stale), "credit": "hand-picked", "pinned": True}, "narration": "", "animation": "fade",
+             "background": "auto", "emphasis": [], "source": ""},
+        ],
+    )
+    db.add(project)
+    db.commit()
+
+    imagery.add_imagery(db, project)
+    first = project.scenes[0]["visual"]
+    assert first.get("path") != str(stale), "an off-subject picture must not survive a re-run"
+    assert project.scenes[1]["visual"]["path"] == str(stale), "a pinned picture is the owner's choice"
+
+    # the replacement is chosen for a real subject, and arrives with its licence
+    assert imagery.deck_subjects(db, project), "a deck with copy always has subjects"
+    replaced = project.scenes[0]["visual"]
+    if replaced.get("path"):
+        assert replaced.get("credit"), "a replacement photo still has to be creditable"

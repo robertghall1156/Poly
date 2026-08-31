@@ -203,6 +203,7 @@ def attach_image(pid: str, idx: int, body: AttachIn, db: Session = Depends(get_d
     scenes[idx]["visual"] = {
         **(scenes[idx].get("visual") or {}),
         "path": row.path, "image_id": row.id, "credit": imagery.credit_line(row),
+        "pinned": True,  # chosen by hand — never replaced by a later Add pictures run
         "source_page": (row.params or {}).get("source_page", ""), "generated": bool(row.is_generated),
         "treatment": body.treatment if body.treatment in imagery.TREATMENTS else "band",
     }

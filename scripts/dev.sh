@@ -80,8 +80,11 @@ trap 'kill 0' EXIT INT TERM
 
 # `python -m poly.cli` rather than the console script: it works even if the
 # entry point is stale, because the backend directory is on the path.
-( cd backend && "$PY" -m poly.cli serve   2>&1 | tee "$ROOT/data/logs/backend.log" ) &
-( cd backend && "$PY" -m poly.cli worker  2>&1 | tee "$ROOT/data/logs/worker.log"  ) &
+# Both reload on code change. Without that, pulling an update looks like it did nothing:
+# the UI hot-reloads, the API and the worker keep running whatever they started with, and
+# you end up debugging behaviour that no longer exists in the source.
+( cd backend && "$PY" -m poly.cli serve  --reload 2>&1 | tee "$ROOT/data/logs/backend.log" ) &
+( cd backend && "$PY" -m poly.cli worker --reload 2>&1 | tee "$ROOT/data/logs/worker.log"  ) &
 ( cd frontend && npm run dev              2>&1 | tee "$ROOT/data/logs/frontend.log" ) &
 
 # --- wait for the API, and say plainly if it never came up -------------------

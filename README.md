@@ -79,6 +79,10 @@ Then click **Run ingest now** on Home (or `make ingest`) to pull today's news.
 ./scripts/doctor.sh      # checks node, ffmpeg, the Python venv, Ollama, and both servers
 ```
 
+The API and the worker both reload when backend code changes, so pulling an update takes
+effect without a restart. Without that the UI hot-reloads while the API and the worker keep
+running whatever they started with — which looks exactly like a change that did nothing.
+
 `dev.sh` writes `data/logs/backend.log`, `worker.log` and `frontend.log`, waits for the API, and
 tells you if it never came up. It also repairs the one install problem that bites in practice: an
 editable install that lands without its path link, which makes every `poly …` command fail with

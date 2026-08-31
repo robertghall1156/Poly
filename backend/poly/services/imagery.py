@@ -23,6 +23,7 @@ from __future__ import annotations
 
 import logging
 import re
+from pathlib import Path
 from typing import Any
 
 import httpx
@@ -324,11 +325,14 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
         plan = plan_scene_visual(scene, context, cast)
         want = plan.get("want")
         visual = dict(scene.get("visual") or {})
-        # A picture Poly picked is provisional: if the subject it was picked for is no longer
-        # what this scene is about, it was a wrong guess and gets replaced. A picture the owner
-        # attached by hand is never touched.
-        if visual.get("path") and visual.get("auto") and visual.get("query") not in (None, plan.get("query")):
-            log.info("replacing an auto picture chosen for %r", visual.get("query"))
+        # Any picture the owner did not pin is provisional, and goes if it does not depict this
+        # scene's subject. That is also how wrong pictures from an earlier, dumber version get
+        # cleared: they carry no marker at all, because there was no marker to carry.
+        # plan_scene_visual reports "none" for a scene that already has a picture, so the
+        # subject is resolved directly here — judging that picture is the whole point.
+        _, current_subject, current_thing = _subject_query(scene, cast)
+        if visual.get("path") and not visual.get("pinned") and not _still_depicts(db, visual, current_subject, current_thing):
+            log.info("dropping a picture that does not depict %s", getattr(current_subject, "name", "the subject"))
             for key in ("path", "image_id", "credit", "source_page", "generated", "auto", "query"):
                 visual.pop(key, None)
             scene["visual"] = visual
@@ -397,6 +401,23 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
     project.render_status = "none"
     db.commit()
     return project
+
+
+def _still_depicts(db: Session, visual: dict[str, Any], subject: Subject | None, thing: str) -> bool:
+    """Does the picture on this scene actually show the scene's subject?
+
+    Scored against the stored title where we have one, and the filename otherwise — pictures
+    attached before subjects existed carry no metadata, and those are exactly the ones most
+    likely to be wrong.
+    """
+    if subject is None:
+        return True
+    if visual.get("generated"):
+        return True  # drawn to order for this scene
+    path = str(visual.get("path") or "")
+    row = db.execute(select(Image).where(Image.path == path)).scalar_one_or_none() if path else None
+    described = f"{row.title} {row.prompt}" if row is not None else re.sub(r"[-_]+", " ", Path(path).stem)
+    return score_candidate(described, subject, thing=thing) > 0
 
 
 def _from_library(db: Session, query: str, *, exclude: set[str], subject: Subject | None = None, thing: str = "") -> Image | None:

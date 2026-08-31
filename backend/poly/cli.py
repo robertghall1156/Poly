@@ -17,12 +17,25 @@ import json
 import sys
 
 
+def _run_worker() -> None:
+    from huey.consumer_options import ConsumerConfig
+
+    from .db import init_db
+    from .jobs.tasks import huey  # noqa: F401 - registers tasks
+
+    init_db()
+    config = ConsumerConfig(workers=2, worker_type="thread", periodic=True)
+    config.setup_logger()
+    huey.create_consumer(**config.values).run()
+
+
 def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="poly", description=__doc__, formatter_class=argparse.RawDescriptionHelpFormatter)
     sub = parser.add_subparsers(dest="cmd", required=True)
     s = sub.add_parser("serve")
     s.add_argument("--reload", action="store_true")
-    sub.add_parser("worker")
+    w = sub.add_parser("worker")
+    w.add_argument("--reload", action="store_true", help="restart when backend code changes (development)")
     sub.add_parser("init-db")
     sub.add_parser("detect")
     i = sub.add_parser("ingest")
@@ -45,16 +58,16 @@ def main(argv: list[str] | None = None) -> int:
         uvicorn.run("poly.main:app", host=cfg.host, port=cfg.port, reload=args.reload)
         return 0
     if args.cmd == "worker":
-        from huey.consumer_options import ConsumerConfig
+        if args.reload:
+            # Jobs run in this process, so stale worker code is invisible: the API serves new
+            # behaviour while every background job still runs the old. Watch and restart.
+            from pathlib import Path as _Path
 
-        from .db import init_db
-        from .jobs.tasks import huey  # noqa: F401 - registers tasks
+            from watchfiles import run_process
 
-        init_db()
-        config = ConsumerConfig(workers=2, worker_type="thread", periodic=True)
-        config.setup_logger()
-        consumer = huey.create_consumer(**config.values)
-        consumer.run()
+            run_process(str(_Path(__file__).resolve().parent), target=_run_worker)
+            return 0
+        _run_worker()
         return 0
 
     from .db import init_db, session_scope
