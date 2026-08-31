@@ -1,6 +1,7 @@
-.PHONY: setup dev doctor test build backend worker frontend ingest detect migrate lint
+.PHONY: setup dev stop doctor test build backend worker frontend ingest detect migrate lint
 setup:      ; ./scripts/setup.sh
 dev:        ; ./scripts/dev.sh
+stop:       ; ./scripts/stop.sh
 doctor:     ; ./scripts/doctor.sh
 backend:    ; cd backend && .venv/bin/python -m poly.cli serve --reload
 worker:     ; cd backend && .venv/bin/python -m poly.cli worker

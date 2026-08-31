@@ -91,6 +91,15 @@ cd backend && uv pip install -e .
 "Cannot reach the Poly backend at http://localhost:8000" in the UI always means the API isn't
 running — the interface is fine, its engine isn't. Check `data/logs/backend.log`.
 
+The usual cause is a **second stack started on top of a running one**. The new API then dies with
+`address already in use`, the new UI quietly moves to `:3001`, and you end up looking at a page
+whose engine has gone. `dev.sh` now stops Poly's own leftovers on `:8000` and `:3000` before it
+starts (and refuses to touch a port held by anything that isn't Poly). To clear them yourself:
+
+```bash
+./scripts/stop.sh        # or: make stop
+```
+
 ### Running the pieces separately
 
 ```bash
