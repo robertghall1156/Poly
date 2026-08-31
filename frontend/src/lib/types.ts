@@ -806,6 +806,11 @@ export interface StudioScene {
   animation: string;
   transition?: string;
   background: string;
+  /** true once a person picks a surface by hand; otherwise the deck's rhythm chooses */
+  surface_locked?: boolean;
+  /** layout role — cover, point, stat, chart, contrast, quote, list, timeline, image, question, closer */
+  role?: string;
+  kicker?: string;
   emphasis: string[];
   source: string;
   [k: string]: unknown;

@@ -14,7 +14,8 @@ import zipfile
 from pathlib import Path
 
 from poly.services import faceless, memes
-from poly.services.render_video import build_scene_ass, render_project, render_scene_preview
+from poly.services.render_scene import compose, compose_text
+from poly.services.render_video import build_counter_ass, render_project, render_scene_preview, scene_filter
 
 
 def _probe(path: str) -> dict:
@@ -132,15 +133,62 @@ def test_quality_gate_flags_missing_sources(db, seeded):
     assert checks["Sources"] in ("pass", "warn")
 
 
-def test_ass_animation_contains_fx_and_emphasis():
-    scene = {"duration": 3, "on_screen_text": "WHY 1,000X LOUDER?", "subtext": "a sub", "visual_type": "question", "visual": {}, "animation": "pop", "background": "primary", "emphasis": ["1,000X"]}
-    ass = build_scene_ass(scene, {"highlight": "#C89B3C"})
-    assert "\\t(0,150" in ass  # pop animation
-    assert "&H003C9BC8" in ass  # gold emphasis color in ASS BGR
-    assert "a sub" in ass
-    counter_scene = {"duration": 4, "on_screen_text": "", "visual_type": "counter", "visual": {"from": 0, "to": 4000000000, "prefix": "$"}, "animation": "fade", "background": "primary"}
-    ass2 = build_scene_ass(counter_scene, {})
-    assert ass2.count("Style: Counter") == 1 and "$4B" in ass2
+BRAND = {"primary": "#102A43", "accent": "#0F766E", "highlight": "#C89B3C", "background": "#F8F9FA", "muted": "#52667A", "logo_text": "POLY"}
+
+
+def test_text_never_bleeds_outside_the_safe_margins():
+    """The failure that made early slides unusable: a long line drawn unwrapped, running
+    off both edges of the frame. Nothing may be drawn in the outer margins."""
+    scene = {
+        "duration": 3,
+        "on_screen_text": "Michigan Senate nominee apologized for comments about a synagogue attack",
+        "subtext": "A long supporting sentence that would certainly overflow the frame if it were drawn on a single unwrapped line.",
+        "visual_type": "text",
+        "visual": {},
+        "background": "background",
+    }
+    for w, h in ((1080, 1920), (1080, 1350)):
+        layer = compose_text(scene, BRAND, width=w, height=h, index=1, total=4)
+        alpha = layer.split()[-1]
+        margin = int(w * 0.089) - 24  # the design column, less a hairline of tolerance
+        left = alpha.crop((0, 0, max(1, margin), h)).getextrema()[1]
+        right = alpha.crop((w - max(1, margin), 0, w, h)).getextrema()[1]
+        assert left == 0 and right == 0, f"text bled into the margin at {w}x{h}"
+
+
+def test_scenes_are_composed_not_flat_text():
+    """A designed frame has a graded surface and brand furniture — not one flat fill."""
+    scene = {"duration": 3, "on_screen_text": "Two economies, one country", "subtext": "The gap is a policy choice.", "visual_type": "text", "visual": {}, "background": "primary"}
+    img = compose(scene, BRAND, width=1080, height=1920, index=0, total=5)
+    assert img.size == (1080, 1920)
+    assert len(img.convert("RGB").getcolors(maxcolors=1 << 20) or []) > 500  # gradient + grain, not a flat plate
+
+    # consecutive slides in a deck must not all look identical
+    deck = [dict(scene, on_screen_text=f"Point {i}") for i in range(4)]
+    plates = [compose(s, BRAND, width=1080, height=1350, index=i, total=4).resize((32, 40)).tobytes() for i, s in enumerate(deck)]
+    assert len(set(plates)) == len(plates)
+
+
+def test_emphasis_paints_the_highlight_color():
+    scene = {"duration": 3, "on_screen_text": "WHY 1,000X LOUDER?", "subtext": "a sub", "visual_type": "question", "visual": {}, "background": "primary", "emphasis": ["1,000X"]}
+    layer = compose_text(scene, BRAND, width=1080, height=1920, index=1, total=3).convert("RGB")
+    colors = {c for _, c in (layer.getcolors(maxcolors=1 << 20) or [])}
+    assert any(r > 150 and 110 < g < 210 and b < 130 for r, g, b in colors), "no gold emphasis pixels"
+
+
+def test_counter_animation_counts_up_where_the_still_draws_it():
+    scene = {"duration": 4, "on_screen_text": "What one number tells you", "visual_type": "counter", "visual": {"from": 0, "to": 4000000000, "prefix": "$"}, "animation": "fade", "background": "primary"}
+    ass = build_counter_ass(scene, BRAND, width=1080, height=1920, index=1, total=3)
+    assert ass and ass.count("Style: Counter") == 1
+    assert "$4B" in ass and "$0" in ass  # ends on the real number, starts from zero
+    assert "\\pos(540," in ass  # centred on the frame, where _stat draws it
+    assert build_counter_ass({"on_screen_text": "no counter here", "visual_type": "text"}, BRAND) is None
+
+
+def test_scene_filter_animates_the_text_layer():
+    f = scene_filter({"animation": "slide_up", "transition": "fade"}, width=1080, height=1920, frames=90, duration=3.0)
+    assert "[bg][tx]overlay" in f and "alpha=1" in f and "fade=t=out" in f
+    assert scene_filter({"animation": "none"}, width=1080, height=1920, frames=60, duration=2.0).count("alpha=1") == 0
 
 
 def test_studio_api_flow(client):

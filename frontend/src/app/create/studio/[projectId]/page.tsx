@@ -16,7 +16,7 @@ import { JobStatus } from "@/components/JobStatus";
 
 const VISUAL_TYPES = ["text", "title", "question", "chart", "comparison", "counter", "timeline", "list", "quote", "icon"];
 const ANIMATIONS = ["fade", "slide_up", "pop", "typewriter", "none"];
-const BACKGROUNDS = ["primary", "background", "accent", "gradient"];
+const BACKGROUNDS = ["auto", "primary", "background", "accent", "gradient"];
 const PLATFORMS = ["youtube_short", "tiktok", "instagram_reel", "facebook_reel", "x"];
 
 const VARIATION_LABEL: Record<string, string> = {
@@ -32,7 +32,7 @@ const VARIATION_LABEL: Record<string, string> = {
 };
 
 function blankScene(): StudioScene {
-  return { duration: 3, narration: "", on_screen_text: "New scene", subtext: "", visual_type: "text", visual: {}, animation: "fade", transition: "cut", background: "primary", emphasis: [], source: "" };
+  return { duration: 3, narration: "", on_screen_text: "New scene", subtext: "", visual_type: "text", visual: {}, animation: "fade", transition: "cut", background: "auto", emphasis: [], source: "" };
 }
 
 export default function StudioEditorPage() {
@@ -258,7 +258,7 @@ export default function StudioEditorPage() {
               onClick={() => setSelected(i)}
             >
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src={api.scenePreviewUrl(projectId, i, 0.25, version)} alt={`Scene ${i + 1}`} className="aspect-[9/16] w-full rounded bg-zinc-100 object-cover" loading="lazy" />
+              <img src={api.scenePreviewUrl(projectId, i, 0.25, version)} alt={`Scene ${i + 1}`} className={cn("w-full rounded bg-zinc-100 object-cover", isCarousel ? "aspect-[4/5]" : "aspect-[9/16]")} loading="lazy" />
               <div className="mt-1 flex items-center gap-1">
                 <span className="text-[11px] font-medium text-zinc-600">{i + 1}</span>
                 <span className="rounded bg-zinc-100 px-1 font-mono text-[10px] text-zinc-500">{Number(s.duration).toFixed(1)}s</span>
@@ -380,7 +380,7 @@ function SceneProperties({ scene, onChange, onRegenerate, busy }: { scene: Studi
         <VisualFields type={scene.visual_type} visual={scene.visual ?? {}} onChange={setVisual} />
         <div className="grid grid-cols-2 gap-2">
           <Field label="Background">
-            <Select value={scene.background} onChange={(e) => onChange({ background: e.target.value })} className="w-full">
+            <Select value={scene.background || "auto"} onChange={(e) => onChange({ background: e.target.value, surface_locked: e.target.value !== "auto" })} className="w-full">
               {[...new Set([...BACKGROUNDS, scene.background])].map((b) => (
                 <option key={b} value={b}>
                   {b}

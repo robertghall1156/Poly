@@ -15,6 +15,7 @@ from ..config import get_settings
 from ..models import Image
 from ..providers.base import ProviderError
 from ..providers.image.local_generative import LocalGenerativeImageProvider
+from .design import font as design_font
 
 FONT_CANDIDATES = [
     "/System/Library/Fonts/Supplemental/Arial Bold.ttf",
@@ -25,14 +26,9 @@ FONT_CANDIDATES = [
 ]
 
 
-def _font(size: int) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
-    for p in FONT_CANDIDATES:
-        if Path(p).exists():
-            try:
-                return ImageFont.truetype(p, size)
-            except OSError:
-                continue
-    return ImageFont.load_default()
+def _font(size: int, weight: int = 700) -> ImageFont.FreeTypeFont | ImageFont.ImageFont:
+    """Every Pillow surface in Poly draws in the interface typeface — see services.design."""
+    return design_font(size, weight)
 
 
 def _hex(c: str, default=(18, 72, 126)) -> tuple[int, int, int]:

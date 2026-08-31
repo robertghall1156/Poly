@@ -7,6 +7,7 @@ Rendering lives in `services/render_video.py`.
 from __future__ import annotations
 
 import logging
+import re
 from typing import Any
 
 from sqlalchemy.orm import Session
@@ -26,6 +27,7 @@ from ..models import (
 from ..providers.base import ProviderError
 from ..providers.registry import Router
 from ..providers.tts.local import WORDS_PER_SECOND
+from .design import role_for
 from .llm_utils import as_list, as_str, chat_json
 from .search import embed_entity
 from .voice import INTEGRITY, VOICE
@@ -94,7 +96,7 @@ FORMAT_SPECS: dict[str, dict[str, Any]] = {
 
 DEFAULT_FORMAT_BY_SOURCE = {"story": "news_explainer", "brief": "my_take", "principle": "question", "research_note": "text_explainer", "custom": "question"}
 PLATFORM_LIMITS = {"tiktok": 600, "instagram_reel": 90, "youtube_short": 180, "facebook_reel": 90, "x": 140}
-BACKGROUNDS = ["primary", "background", "accent", "gradient"]
+BACKGROUNDS = ["auto", "primary", "background", "accent", "gradient"]
 ANIMATIONS = ["fade", "slide_up", "pop", "typewriter", "none"]
 
 SYSTEM_SCENES = f"""{VOICE}
@@ -126,7 +128,10 @@ footage, no faces). Return JSON:
  }}]}}
 Rules: narration must be speakable within the scene duration (~{WORDS_PER_SECOND} words/second).
 Never fabricate quotations, numbers or events; if the material lacks a number, do not invent one.
-One idea per scene. The last scene asks the viewer a real question."""
+One idea per scene. The last scene asks the viewer a real question.
+Vary the scenes: a deck where every scene is plain text is a failure. Whenever the material
+supports it use counter (a single figure), comparison (two values against each other), chart,
+timeline or list — but only with numbers that appear in the material."""
 
 
 # ---------------------------------------------------------------------------
@@ -184,9 +189,71 @@ def resolve_source(db: Session, src: dict[str, Any]) -> tuple[str, str, dict[str
 # ---------------------------------------------------------------------------
 # Scene normalisation
 # ---------------------------------------------------------------------------
+_NUMBER = re.compile(r"(?P<prefix>[$€£]?)(?P<num>\d[\d,]*(?:\.\d+)?)\s*(?P<suffix>%|percent|bn|billion|m|million|k|thousand|x|times)?", re.I)
+_SCALE = {"bn": 1e9, "billion": 1e9, "m": 1e6, "million": 1e6, "k": 1e3, "thousand": 1e3}
+
+
+def _promote_number(scene: dict[str, Any]) -> None:
+    """A slide whose whole point is a figure should show the figure. Only ever promotes a
+    number that is already in the copy — it never invents one."""
+    if scene["visual_type"] not in ("text", "title") or scene.get("visual"):
+        return
+    for field in ("on_screen_text", "subtext"):
+        m = _NUMBER.search(scene[field] or "")
+        if not m:
+            continue
+        try:
+            value = float(m.group("num").replace(",", ""))
+        except ValueError:
+            continue
+        suffix_raw = (m.group("suffix") or "").lower()
+        if suffix_raw in _SCALE:
+            value *= _SCALE[suffix_raw]
+            suffix = ""
+        elif suffix_raw in ("%", "percent"):
+            suffix = "%"
+        elif suffix_raw in ("x", "times"):
+            suffix = "x"
+        else:
+            suffix = ""
+        if value < 10 and not suffix:  # "3 things to watch" is not a statistic
+            return
+        rest = (scene["subtext"] if field == "on_screen_text" else scene["on_screen_text"]) or ""
+        scene["visual_type"] = "counter"
+        label = re.sub(r"\s{2,}", " ", (scene[field][: m.start()] + scene[field][m.end() :])).strip(" ,.—-")
+        scene["visual"] = {"from": 0, "to": value, "prefix": m.group("prefix") or "", "suffix": suffix, "label": label[:60]}
+        if field == "on_screen_text" and rest:
+            scene["on_screen_text"] = rest[:140]
+            scene["subtext"] = ""
+        return
+
+
+def _auto_emphasis(scene: dict[str, Any]) -> None:
+    """Highlight the figure in a line, and nothing else. Gilding an arbitrary long word
+    looks like a mistake — emphasis has to mean something."""
+    if scene.get("emphasis"):
+        return
+    numeric = [w for w in re.findall(r"[\w$%,.'’-]+", scene.get("on_screen_text") or "") if any(c.isdigit() for c in w)]
+    if numeric:
+        scene["emphasis"] = [numeric[0]]
+
+
+def _apply_design(scenes: list[dict[str, Any]]) -> list[dict[str, Any]]:
+    """Turn a flat list of text slides into a designed sequence: a role per scene, figures
+    promoted into stat cards, one emphasized term per line, surfaces left to the deck rhythm."""
+    total = len(scenes)
+    for i, s in enumerate(scenes):
+        _promote_number(s)
+        _auto_emphasis(s)
+        s["role"] = role_for(s, i, total)
+        if s["role"] in ("cover", "question", "closer") and s["visual_type"] == "text":
+            s["visual_type"] = {"cover": "title", "question": "question", "closer": "text"}[s["role"]]
+    return scenes
+
+
 def normalize_scenes(raw: list[Any], *, target_seconds: int) -> list[dict[str, Any]]:
     scenes: list[dict[str, Any]] = []
-    for i, s in enumerate(raw):
+    for s in raw:
         if not isinstance(s, dict):
             continue
         text = as_str(s.get("on_screen_text")).strip()
@@ -203,9 +270,12 @@ def normalize_scenes(raw: list[Any], *, target_seconds: int) -> list[dict[str, A
         anim = as_str(s.get("animation")) or "fade"
         if anim not in ANIMATIONS:
             anim = "fade"
-        bg = as_str(s.get("background")) or ("primary" if i % 2 == 0 else "primary")
+        # A model choosing a surface can't see the rest of the deck, so its pick is only
+        # honoured once a person has locked it in the editor.
+        bg = as_str(s.get("background")) or "auto"
         if bg not in BACKGROUNDS:
-            bg = "primary"
+            bg = "auto"
+        locked = bool(s.get("surface_locked")) and bg != "auto"
         # narration must fit: extend duration if needed
         if narration:
             need = len(narration.split()) / WORDS_PER_SECOND + 0.4
@@ -223,12 +293,16 @@ def normalize_scenes(raw: list[Any], *, target_seconds: int) -> list[dict[str, A
                 "animation": anim,
                 "transition": "fade" if as_str(s.get("transition")) == "fade" else "cut",
                 "background": bg,
+                "surface_locked": locked,
+                "role": as_str(s.get("role")),
+                "kicker": as_str(s.get("kicker"))[:40],
                 "emphasis": [as_str(w) for w in as_list(s.get("emphasis"))][:3],
                 "source": as_str(s.get("source"))[:200],
             }
         )
     if not scenes:
         raise ProviderError("model returned no usable scenes", provider="faceless")
+    scenes = _apply_design(scenes)
     # scale toward target length (never squeezing narration out of its scene)
     total = sum(s["duration"] for s in scenes)
     if total > 0 and abs(total - target_seconds) / max(target_seconds, 1) > 0.25:

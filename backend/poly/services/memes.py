@@ -18,10 +18,12 @@ from sqlalchemy.orm import Session
 from ..config import get_settings
 from ..models import Image
 from ..providers.registry import Router
+from .design import shade as _shade
+from .design import vertical_gradient as _vertical_gradient
 from .faceless import resolve_source
 from .images import _fit_font, _font, _hex
 from .llm_utils import as_list, as_str, chat_json
-from .render_video import _darken, _vertical_gradient, load_brand
+from .render_video import load_brand
 from .voice import INTEGRITY, VOICE
 
 MEME_TEMPLATES = [
@@ -99,7 +101,7 @@ SIZE = 1080
 
 def _canvas(brand: dict, dark: bool = True) -> PILImage.Image:
     base = _hex(brand.get("primary", "#102A43")) if dark else _hex(brand.get("background", "#F8F9FA"))
-    return _vertical_gradient(base, _darken(base, 0.86 if dark else 0.97), SIZE, SIZE)
+    return _vertical_gradient(base, _shade(base, 0.86 if dark else 0.97), SIZE, SIZE)
 
 
 def _outlined(draw, xy, text, font, fill, anchor_center_x=None):
@@ -123,7 +125,7 @@ def _split_panels(img, draw, brand, label_a, label_b, text_a, text_b, *, horizon
             if low.startswith(prefix):
                 text = text.lstrip()[len(prefix):].lstrip(" :.-") or text
                 break
-        draw.rounded_rectangle(box, radius=26, fill=_darken(color, 0.22), outline=color, width=5)
+        draw.rounded_rectangle(box, radius=26, fill=_shade(color, 0.22), outline=color, width=5)
         lf = _font(40)
         draw.text(((box[0] + box[2]) / 2 - draw.textlength(label, font=lf) / 2, box[1] + 26), label, font=lf, fill=color)
         f, lines = _fit_font(draw, text, int(box[2] - box[0] - 60), int(box[3] - box[1] - 140), start=54, minimum=28)
