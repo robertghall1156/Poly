@@ -36,6 +36,43 @@ _CHROME = re.compile(
 _TAGS = re.compile(r"<[^>]+>")
 MIN_EDGE = 500
 
+# An article's images are returned in page-id order, which has nothing to do with usefulness:
+# for a sitting president that puts a high-school yearbook portrait and a chart of his
+# statements ahead of anything from his presidency. Rank them.
+_WEAK = re.compile(
+    r"yearbook|ai[-_ ]generated|graph|chart|composite|diagram|timeline|signature|autograph|"
+    r"logo|book_?cover|cartoon|caricature|grave|birthplace|childhood|young|school|"
+    r"family_?tree|residence|plaque|ballot|sticker|badge|screenshot|meme|word_?cloud",
+    re.I,
+)
+_STRONG = re.compile(
+    r"official_?portrait|white_?house|oval_?office|president|inaugurat|address|speech|"
+    r"press_?conference|podium|rally|signing|summit|state_?of_the_union|briefing|"
+    r"cabinet|air_?force_?one|motorcade|debate",
+    re.I,
+)
+_YEAR = re.compile(r"(19|20)\d{2}")
+
+
+def rank(file_name: str, *, is_lead: bool = False, credit: str = "") -> int:
+    """Higher is better. A picture of the subject doing the job beats a picture of them existing.
+
+    The credit line is read too: a school portrait is often filed under an opaque name and only
+    the source ("Yearbook Library") gives it away.
+    """
+    name = f"{file_name} {credit}".replace(" ", "_")
+    score = 50
+    if is_lead:
+        score += 60  # the article's lead image is the canonical portrait
+    if _STRONG.search(name):
+        score += 25
+    if _WEAK.search(name):
+        score -= 60
+    year = _YEAR.findall(name)
+    if year:
+        score += min(20, max(0, int(f"{year[-1]}") - 2000))  # recent beats archival
+    return score
+
 
 def _plain(value: Any) -> str:
     if not isinstance(value, dict):
@@ -84,6 +121,13 @@ class WikipediaImageProvider(ImageSearchProvider):
         page = self.resolve(query)
         if not page:
             return []
+        lead = ""
+        try:
+            head = self._get({"action": "query", "titles": page, "prop": "pageimages", "piprop": "name"})
+            for entry in (head.get("query") or {}).get("pages", {}).values():
+                lead = str(entry.get("pageimage") or "")
+        except ProviderError:
+            pass  # ranking still works without it
         data = self._get({
             "action": "query",
             "titles": page,
@@ -93,7 +137,7 @@ class WikipediaImageProvider(ImageSearchProvider):
             "iiprop": "url|extmetadata|size|mime",
             "iiurlwidth": 1600,
         })
-        out: list[ImageCandidate] = []
+        scored: list[tuple[int, ImageCandidate]] = []
         for entry in (data.get("query") or {}).get("pages", {}).values():
             title = str(entry.get("title", ""))
             file_name = re.sub(r"^File:", "", title)
@@ -114,7 +158,12 @@ class WikipediaImageProvider(ImageSearchProvider):
             height = int(info.get("thumbheight") or info.get("height") or 0)
             if width and width < MIN_EDGE:
                 continue
-            out.append(
+            scored.append((
+                rank(
+                    file_name,
+                    is_lead=bool(lead) and file_name.replace(" ", "_") == lead.replace(" ", "_"),
+                    credit=_plain(meta.get("Artist")) or _plain(meta.get("Credit")),
+                ),
                 ImageCandidate(
                     url=info.get("thumburl") or info.get("url", ""),
                     thumb_url=info.get("thumburl", ""),
@@ -129,8 +178,7 @@ class WikipediaImageProvider(ImageSearchProvider):
                     height=height,
                     provider=self.name,
                     mime=mime,
-                )
-            )
-            if len(out) >= limit:
-                break
-        return out
+                ),
+            ))
+        scored.sort(key=lambda pair: -pair[0])
+        return [c for _, c in scored[:limit]]

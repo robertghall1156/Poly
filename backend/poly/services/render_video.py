@@ -13,6 +13,8 @@ pass over the composed frame. Carousels reuse the same composition at 1080×1350
 """
 from __future__ import annotations
 
+import hashlib
+import json
 import re
 import shutil
 import subprocess
@@ -170,17 +172,31 @@ def _run(cmd: list[str]) -> None:
 
 
 def render_scene_preview(db: Session, project: VideoProject, index: int, *, scale: float = 0.35) -> Path:
-    """Still preview of one scene, at the geometry it will actually be exported in."""
+    """Still preview of one scene, at the geometry it will actually be exported in.
+
+    Cached on the scene's own content: composing a slide costs the better part of a second
+    (gradient, grain, duotone), and an editor asks for every thumbnail at once. Re-rendering
+    each time left the rail empty for ten seconds, which reads as broken rather than slow.
+    The key is a hash of the scene and the brand, so an edit invalidates it by itself.
+    """
     scenes = project.scenes or []
     if not 0 <= index < len(scenes):
         raise ValueError("scene index out of range")
     width, height = geometry(project)
     brand = load_brand(db, project)
+    key = hashlib.sha1(
+        json.dumps({"scene": scenes[index], "brand": brand, "n": len(scenes)}, sort_keys=True, default=str).encode()
+    ).hexdigest()[:12]
+    out = get_settings().cache_path / f"scene-{project.id}-{index}-{width}x{height}-{int(scale * 100)}-{key}.png"
+    if out.exists():
+        return out
     img = compose(scenes[index], brand, width=width, height=height, index=index, total=len(scenes))
     if scale != 1.0:
         img = img.resize((int(width * scale), int(height * scale)))
-    out = get_settings().cache_path / f"scene-{project.id}-{index}-{width}x{height}-{int(scale * 100)}.png"
     img.save(out)
+    for stale in out.parent.glob(f"scene-{project.id}-{index}-*.png"):
+        if stale != out:
+            stale.unlink(missing_ok=True)  # one file per scene per size, not a growing pile
     return out
 
 

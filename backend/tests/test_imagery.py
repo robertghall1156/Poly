@@ -352,3 +352,20 @@ def test_a_picture_that_does_not_depict_the_subject_is_replaced(db, wiki, monkey
     replaced = project.scenes[0]["visual"]
     if replaced.get("path"):
         assert replaced.get("credit"), "a replacement photo still has to be creditable"
+
+
+def test_article_images_are_ranked_before_they_are_offered():
+    """An article's images come back in page-id order, which for a president puts a high-school
+    yearbook portrait and a chart of his statements ahead of anything from his presidency."""
+    from poly.providers.image_search.wikipedia import rank  # noqa: PLC0415
+
+    portrait = rank("Donald Trump official portrait.jpg", is_lead=True)
+    signing = rank("President Trump signing an executive order 2025.jpg")
+    plain = rank("-G7Biarritz (48616362963).jpg")
+    yearbook = rank("Donald Trump NYMA.jpg", credit="Seth Poppel/Yearbook Library")
+    graph = rank("2017- Donald Trump veracity - composite graph.png")
+    ai = rank("AI-Generated Image depicting Donald Trump as Jesus Christ.jpg")
+
+    assert portrait > plain and signing > plain, "doing the job beats merely existing"
+    assert yearbook < plain, "a school photo is not a picture of a presidency"
+    assert graph < 0 and ai < 0, "charts and generated art are not photographs of anyone"
