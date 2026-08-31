@@ -72,8 +72,17 @@ const CLAIM_TYPE_VARIANT: Record<string, "neutral" | "accent" | "amber" | "viole
   PREDICTION: "warn",
 };
 
+/** Plain English for the machine taxonomy. Nobody reads "COUNTERFACTUAL" and thinks faster. */
+const CLAIM_TYPE_LABEL: Record<string, string> = {
+  FACT: "Reported",
+  ANALYSIS: "Interpretation",
+  OPINION: "Opinion",
+  COUNTERFACTUAL: "Disputed",
+  PREDICTION: "Forecast",
+};
+
 export function ClaimTypeBadge({ type }: { type: string }) {
-  return <Badge variant={CLAIM_TYPE_VARIANT[type] ?? "neutral"}>{type}</Badge>;
+  return <Badge variant={CLAIM_TYPE_VARIANT[type] ?? "neutral"}>{CLAIM_TYPE_LABEL[type] ?? labelFormat(type)}</Badge>;
 }
 
 const FC_VARIANT: Record<string, "success" | "amber" | "neutral" | "violet" | "danger" | "warn"> = {
@@ -87,8 +96,17 @@ const FC_VARIANT: Record<string, "success" | "amber" | "neutral" | "violet" | "d
 
 export const FACT_CHECK_STATUSES = ["VERIFIED", "SUPPORTED_BUT_UNCERTAIN", "OPINION", "COUNTERFACTUAL", "UNVERIFIED", "OUTDATED"];
 
+export const FACT_CHECK_LABEL: Record<string, string> = {
+  VERIFIED: "Checks out",
+  SUPPORTED_BUT_UNCERTAIN: "Partly supported",
+  OPINION: "Opinion",
+  COUNTERFACTUAL: "Contradicted",
+  UNVERIFIED: "Not checked",
+  OUTDATED: "Out of date",
+};
+
 export function ClaimBadge({ status }: { status: string }) {
-  return <Badge variant={FC_VARIANT[status] ?? "neutral"}>{status.replace(/_/g, " ")}</Badge>;
+  return <Badge variant={FC_VARIANT[status] ?? "neutral"}>{FACT_CHECK_LABEL[status] ?? labelFormat(status)}</Badge>;
 }
 
 export function FactCheckDot({ status, className }: { status: string; className?: string }) {

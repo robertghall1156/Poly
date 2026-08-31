@@ -16,7 +16,7 @@ import { Table, TBody, TD, TH, THead, TR } from "@/components/ui/table";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { EmptyState, ErrorNotice, Notice } from "@/components/ui/notice";
 import { PageHeader, Panel } from "@/components/ui/section";
-import { ClaimBadge, FACT_CHECK_STATUSES, FactCheckDot, FormatBadge, StatusBadge } from "@/components/badges";
+import { ClaimBadge, FACT_CHECK_LABEL, FACT_CHECK_STATUSES, FactCheckDot, FormatBadge, StatusBadge } from "@/components/badges";
 import { JobStatus } from "@/components/JobStatus";
 import { PackageView } from "@/components/PackageView";
 import { GenerateContentDialog } from "@/components/GenerateContentDialog";
@@ -508,7 +508,7 @@ function ResolveDialog({ claim, contentId, onClose, onResolved }: { claim: FactC
           <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full">
             {FACT_CHECK_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s.replace(/_/g, " ")}
+                {FACT_CHECK_LABEL[s] ?? s.replace(/_/g, " ")}
               </option>
             ))}
           </Select>

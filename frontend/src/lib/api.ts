@@ -248,6 +248,8 @@ export const api = {
   searchImages: (q: string, limit = 12) => get<{ results: ImageCandidate[] }>(`/studio/images/search${qs({ q, limit })}`),
   attachSceneImage: (id: string, idx: number, candidate: ImageCandidate, treatment = "band") =>
     post<StudioProject>(`/studio/projects/${id}/scenes/${idx}/image`, { scene_index: idx, candidate, treatment }),
+  attachLibraryImage: (id: string, idx: number, imageId: string, treatment = "band") =>
+    post<StudioProject>(`/studio/projects/${id}/scenes/${idx}/image-from-library`, { image_id: imageId, treatment }),
   projectFileUrl: (id: string) => `${API_BASE}/api/studio/projects/${id}/file`,
   slideFileUrl: (id: string, idx: number) => `${API_BASE}/api/studio/projects/${id}/slides/${idx}/file`,
   studioQuality: (id: string) => get<{ checks: QualityCheck[]; passed: boolean }>(`/studio/projects/${id}/quality`),

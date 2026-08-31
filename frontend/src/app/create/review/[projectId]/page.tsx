@@ -13,7 +13,7 @@ import { Dialog } from "@/components/ui/dialog";
 import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { ErrorNotice, Notice } from "@/components/ui/notice";
-import { FACT_CHECK_STATUSES } from "@/components/badges";
+import { FACT_CHECK_LABEL, FACT_CHECK_STATUSES } from "@/components/badges";
 import { JobStatus } from "@/components/JobStatus";
 
 export default function ReviewPage() {
@@ -318,7 +318,7 @@ function ResolveClaimDialog({ claim, contentId, onClose, onResolved }: { claim: 
           <Select value={status} onChange={(e) => setStatus(e.target.value)} className="w-full">
             {FACT_CHECK_STATUSES.map((s) => (
               <option key={s} value={s}>
-                {s.replace(/_/g, " ")}
+                {FACT_CHECK_LABEL[s] ?? s.replace(/_/g, " ")}
               </option>
             ))}
           </Select>

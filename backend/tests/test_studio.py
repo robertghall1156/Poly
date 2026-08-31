@@ -126,7 +126,7 @@ def test_quality_gate_flags_missing_sources(db, seeded):
     db.commit()
     checks = {c["check"]: c["status"] for c in faceless.quality_checks(db, p)}
     assert checks["Sources"] == "fail"
-    assert checks["Human approval"] == "warn"
+    assert checks["Approved by you"] == "warn"
     p.sources = [{"label": "CBO", "url": "https://cbo.gov"}]
     db.commit()
     checks = {c["check"]: c["status"] for c in faceless.quality_checks(db, p)}
@@ -206,7 +206,8 @@ def test_studio_api_flow(client):
     assert job["status"] == "succeeded", job.get("error")
     assert client.get(f"/api/studio/projects/{pid}/file").status_code == 200
     q = client.get(f"/api/studio/projects/{pid}/quality").json()
-    assert {c["check"] for c in q["checks"]} >= {"Facts", "Sources", "Length", "Human approval"}
+    # the gate speaks plain English — nobody reads "Asset provenance" and thinks faster
+    assert {c["check"] for c in q["checks"]} >= {"Checked", "Sources", "Length", "Approved by you"}
     md = client.get(f"/api/studio/projects/{pid}/script").json()["markdown"]
     assert md.startswith("#") and "Scene 1" in md
     r = client.post("/api/studio/memes/concepts", json={"idea": "committee hearings"})

@@ -152,6 +152,24 @@ a teaser that withholds the answer ("nobody is talking about what this really do
 The first scene should carry a picture or a symbol."""
 
 
+# What actually gets a carousel read and kept, rather than scrolled past. The structure is
+# well established; the honesty is a house rule, because a withheld answer buys the swipe and
+# spends the trust.
+CAROUSEL_RULES = """
+CAROUSEL RULES (this is a swipeable post, not a video):
+- 5 to 8 slides. Fewer is not worth saving; past eight, people stop before the end.
+- Slide 1 must work as a standalone image in the feed. One bold, specific claim in plain
+  words — the actual thing that happened and the tension in it. State the claim; do not
+  tease it. "He renamed a lake after himself. The Seneca Nation wants it back." beats
+  "Nobody is talking about what this order really does."
+- One idea per slide. One sentence, or one figure. If it needs two sentences, split it.
+- The last slide is what makes someone save the post: the takeaway in one line, or the
+  short list of what to watch. End with a real question only if it is genuinely open.
+- Write the on-screen text in sentence case, not ALL CAPS.
+
+"""
+
+
 # ---------------------------------------------------------------------------
 # Source material
 # ---------------------------------------------------------------------------
@@ -387,9 +405,12 @@ def generate_scenes(db: Session, project: VideoProject, *, router: Router | None
     source_kind = (project.generation_meta or {}).get("source_kind", "custom")
     _, material, _ = resolve_source(db, (project.generation_meta or {}).get("source", {}))
     lo, hi = spec["scene_range"]
+    if project.kind == "carousel":
+        lo, hi = max(5, lo), min(8, hi)  # completion drops past eight; under five is not worth saving
     user = (
         f"FORMAT: {spec['label']}\nSTRUCTURE: {spec['pattern']}\n"
         f"TARGET LENGTH: {project.target_seconds} seconds total, {lo}-{hi} scenes.\nPLATFORM: {project.platform}\n"
+        + (CAROUSEL_RULES if project.kind == "carousel" else "")
         + (f"ADDITIONAL DIRECTION: {extra_instructions}\n" if extra_instructions else "")
         + f"\nMATERIAL:\n{material}"
     )
@@ -501,11 +522,11 @@ def quality_checks(db: Session, project: VideoProject) -> list[dict[str, str]]:
 
     unresolved = [c for c in item.fact_check_claims if not c.resolved]
     if item.fact_check_status == "not_run":
-        checks.append({"check": "Facts", "status": "warn", "detail": "Fact check hasn't been run yet."})
+        checks.append({"check": "Checked", "status": "warn", "detail": "Fact check hasn't been run yet."})
     elif unresolved:
-        checks.append({"check": "Facts", "status": "fail", "detail": f"{len(unresolved)} factual line(s) still unverified."})
+        checks.append({"check": "Checked", "status": "fail", "detail": f"{len(unresolved)} factual line(s) still unverified."})
     else:
-        checks.append({"check": "Facts", "status": "pass", "detail": "All extracted claims resolved." if item.fact_check_claims else "No factual claims flagged."})
+        checks.append({"check": "Checked", "status": "pass", "detail": "All extracted claims resolved." if item.fact_check_claims else "No factual claims flagged."})
 
     factual_scenes = [s for s in project.scenes or [] if s.get("visual_type") in ("chart", "counter", "comparison", "timeline") or any(ch.isdigit() for ch in s.get("on_screen_text", ""))]
     missing_src = [s for s in factual_scenes if not s.get("source") and not (s.get("visual") or {}).get("source")]
@@ -518,7 +539,7 @@ def quality_checks(db: Session, project: VideoProject) -> list[dict[str, str]]:
 
     wordy = [s for s in project.scenes or [] if len((s.get("on_screen_text") or "").split()) > 14]
     checks.append(
-        {"check": "Clarity", "status": "warn" if wordy else "pass", "detail": f"{len(wordy)} scene(s) exceed 14 on-screen words." if wordy else "Scene text within limits."}
+        {"check": "Readable", "status": "warn" if wordy else "pass", "detail": f"{len(wordy)} scene(s) exceed 14 on-screen words." if wordy else "Scene text within limits."}
     )
 
     dur = total_duration(project.scenes or [])
@@ -530,7 +551,7 @@ def quality_checks(db: Session, project: VideoProject) -> list[dict[str, str]]:
     else:
         checks.append({"check": "Length", "status": "pass", "detail": f"{dur:.0f}s (limit {limit}s)."})
 
-    checks.append({"check": "Platform fit", "status": "pass", "detail": "1080×1920 vertical with safe-zone margins."})
+    checks.append({"check": "Format", "status": "pass", "detail": "1080×1920 vertical with safe-zone margins."})
 
     imgs = [s for s in project.scenes or [] if s.get("visual_type") == "image"]
     def _attributed(s: dict[str, Any]) -> bool:
@@ -541,18 +562,18 @@ def quality_checks(db: Session, project: VideoProject) -> list[dict[str, str]]:
 
     unattributed = [s for s in imgs if not _attributed(s)]
     if unattributed:
-        checks.append({"check": "Asset provenance", "status": "fail", "detail": f"{len(unattributed)} image(s) without provenance (uploaded / generated / attributed)."})
+        checks.append({"check": "Picture rights", "status": "fail", "detail": f"{len(unattributed)} image(s) without provenance (uploaded / generated / attributed)."})
     else:
-        checks.append({"check": "Asset provenance", "status": "pass", "detail": "All visuals are brand-rendered, uploaded or attributed."})
+        checks.append({"check": "Picture rights", "status": "pass", "detail": "All visuals are brand-rendered, uploaded or attributed."})
 
     generated = [s for s in imgs if (s.get("visual") or {}).get("generated")]
     if generated:
-        checks.append({"check": "AI image disclosure", "status": "warn", "detail": "Contains generated imagery — the render labels it; keep the label."})
+        checks.append({"check": "AI labelling", "status": "warn", "detail": "Contains generated imagery — the render labels it; keep the label."})
     else:
-        checks.append({"check": "AI image disclosure", "status": "pass", "detail": "No generated imagery."})
+        checks.append({"check": "AI labelling", "status": "pass", "detail": "No generated imagery."})
 
     checks.append(
-        {"check": "Human approval", "status": "pass" if item.approved_at else "warn", "detail": "Approved." if item.approved_at else "Not approved yet — nothing publishes automatically."}
+        {"check": "Approved by you", "status": "pass" if item.approved_at else "warn", "detail": "Approved." if item.approved_at else "Not approved yet — nothing publishes automatically."}
     )
     return checks
 

@@ -14,6 +14,7 @@ import { ListSkeleton } from "@/components/ui/skeleton";
 import { ErrorNotice } from "@/components/ui/notice";
 import { JobStatus } from "@/components/JobStatus";
 import { PicturePicker } from "@/components/studio/PicturePicker";
+import { PictureSidebar } from "@/components/studio/PictureSidebar";
 
 const VISUAL_TYPES = ["text", "title", "question", "chart", "comparison", "counter", "timeline", "list", "quote", "icon"];
 const ANIMATIONS = ["fade", "slide_up", "pop", "typewriter", "none"];
@@ -345,6 +346,21 @@ export default function StudioEditorPage() {
               }}
             />
           ) : null}
+          <div className="rounded-md border border-zinc-200 bg-white p-3">
+            <p className="kicker mb-2 text-zinc-500">Pictures</p>
+            <div className="max-h-[420px]">
+              <PictureSidebar
+                projectId={projectId}
+                scenes={scenes}
+                selected={selected}
+                onSelectScene={setSelected}
+                onChanged={() => {
+                  void project.reload();
+                  setVersion((x) => x + 1);
+                }}
+              />
+            </div>
+          </div>
           <details className="rounded-md border border-zinc-200 bg-white px-3 py-2">
             <summary className="cursor-pointer text-xs font-medium text-zinc-600 hover:text-zinc-900">Advanced</summary>
             <AdvancedPanel project={p} onSaved={(proj) => project.setData({ ...proj, scenes: p.scenes })} />

@@ -214,6 +214,37 @@ def attach_image(pid: str, idx: int, body: AttachIn, db: Session = Depends(get_d
     return _project(db, p)
 
 
+class AttachLibraryIn(BaseModel):
+    image_id: str
+    treatment: str = "band"
+
+
+@router.post("/projects/{pid}/scenes/{idx}/image-from-library")
+def attach_library_image(pid: str, idx: int, body: AttachLibraryIn, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """Put a picture already in the library onto a scene. No download, no duplicate."""
+    from ..models import Image
+
+    p = get_or_404(db, VideoProject, pid)
+    row = get_or_404(db, Image, body.image_id)
+    scenes = [dict(s) for s in (p.scenes or [])]
+    if not 0 <= idx < len(scenes):
+        raise HTTPException(404, "scene not found")
+    scenes[idx]["visual_type"] = "image"
+    scenes[idx]["role"] = "image"
+    scenes[idx]["visual"] = {
+        **(scenes[idx].get("visual") or {}),
+        "path": row.path, "image_id": row.id, "credit": imagery.credit_line(row),
+        "source_page": (row.params or {}).get("source_page", ""), "generated": bool(row.is_generated),
+        "pinned": True,
+        "treatment": body.treatment if body.treatment in imagery.TREATMENTS else "band",
+    }
+    p.previous_scenes = p.scenes or []
+    p.scenes = scenes
+    p.render_status = "none"
+    db.commit()
+    return _project(db, p)
+
+
 @router.post("/projects/{pid}/variation")
 def variation(pid: str, body: VariationIn, db: Session = Depends(get_db)) -> dict[str, Any]:
     get_or_404(db, VideoProject, pid)
