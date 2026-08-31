@@ -14,12 +14,17 @@ Everything returned still comes from Commons, so the licence check is identical.
 from __future__ import annotations
 
 import re
+import time
 from typing import Any
 
 import httpx
 
 from ..base import ImageCandidate, ImageSearchProvider, ProviderError
 from .wikimedia import license_is_free
+
+
+class RateLimited(ProviderError):
+    """The source is fine, we are asking too fast. Not a reason to use a worse source."""
 
 API = "https://en.wikipedia.org/w/api.php"
 UA = "Poly/0.1 (personal political research tool; local-first)"
@@ -99,6 +104,13 @@ class WikipediaImageProvider(ImageSearchProvider):
     def _get(self, params: dict[str, Any]) -> dict[str, Any]:
         try:
             r = httpx.get(API, params={"format": "json", **params}, timeout=self.timeout, headers={"User-Agent": UA})
+            if r.status_code == 429:
+                # Asking again immediately makes it worse. One patient retry, then give up
+                # for this run — a rate limit is a "later", not a reason to lower standards.
+                time.sleep(min(5.0, float(r.headers.get("Retry-After", 2) or 2)))
+                r = httpx.get(API, params={"format": "json", **params}, timeout=self.timeout, headers={"User-Agent": UA})
+            if r.status_code == 429:
+                raise RateLimited("Wikipedia is rate-limiting this machine; try again in a few minutes", provider=self.name)
             r.raise_for_status()
             return r.json()
         except (httpx.HTTPError, ValueError) as e:

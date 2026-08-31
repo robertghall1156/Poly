@@ -37,6 +37,7 @@ from ..models import Article, Image, VideoProject
 from ..providers.base import ImageCandidate, PrivacyViolation, ProviderError
 from ..providers.image.local_generative import LocalGenerativeImageProvider
 from ..providers.image_search import all_providers
+from ..providers.image_search.wikipedia import RateLimited
 from ..providers.image_search.wikipedia import rank as picture_rank
 from .privacy import NetworkPolicy
 from .subjects import Subject, extract, for_scene, frame_for, score_candidate, thing_in
@@ -111,6 +112,11 @@ def _fetch_candidates(query: str, limit: int) -> tuple[list[dict[str, Any]], lis
     for provider in all_providers():
         try:
             found = [_as_dict(c) for c in provider.search(query, limit=limit) if c.url]
+        except RateLimited as e:
+            # Falling through to a looser source here is how a rate limit turns into a wrong
+            # picture. No picture is better: the slide falls back to a drawn mark.
+            log.warning("%s is rate-limiting; not substituting a weaker source", provider.name)
+            return out, [str(e)]
         except ProviderError as e:
             errors.append(str(e))
             log.warning("image search via %s failed: %s", provider.name, e)
