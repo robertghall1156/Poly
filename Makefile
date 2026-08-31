@@ -1,11 +1,12 @@
-.PHONY: setup dev test build backend worker frontend ingest detect migrate lint
+.PHONY: setup dev doctor test build backend worker frontend ingest detect migrate lint
 setup:      ; ./scripts/setup.sh
 dev:        ; ./scripts/dev.sh
-backend:    ; cd backend && .venv/bin/poly serve --reload
-worker:     ; cd backend && .venv/bin/poly worker
+doctor:     ; ./scripts/doctor.sh
+backend:    ; cd backend && .venv/bin/python -m poly.cli serve --reload
+worker:     ; cd backend && .venv/bin/python -m poly.cli worker
 frontend:   ; cd frontend && npm run dev
-ingest:     ; cd backend && .venv/bin/poly ingest
-detect:     ; cd backend && .venv/bin/poly detect
+ingest:     ; cd backend && .venv/bin/python -m poly.cli ingest
+detect:     ; cd backend && .venv/bin/python -m poly.cli detect
 migrate:    ; cd backend && .venv/bin/alembic upgrade head
 test:       ; cd backend && .venv/bin/python -m pytest -q
 build:      ; cd frontend && npm run build

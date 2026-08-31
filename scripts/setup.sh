@@ -19,7 +19,20 @@ echo "== Backend"
   EXTRA="dev"
   if [ "$(uname -s)" = "Darwin" ] && [ "$(uname -m)" = "arm64" ]; then EXTRA="dev,mlx,vision"; echo "Apple Silicon detected → installing mlx-whisper for local transcription"; else EXTRA="dev,whisper,vision"; fi
   uv pip install -q -p .venv/bin/python -e ".[${EXTRA}]"
-  .venv/bin/poly init-db >/dev/null
+  # Verify the editable install actually linked the package. uv/hatchling can leave
+  # the .pth out, which makes every later `poly …` command fail with
+  # "ModuleNotFoundError: No module named 'poly'".
+  if ! .venv/bin/python -c "import poly" >/dev/null 2>&1; then
+    echo "  package link missing — repairing"
+    uv pip install -q -p .venv/bin/python -e ".[${EXTRA}]" --reinstall-package poly-backend || true
+    if ! .venv/bin/python -c "import poly" >/dev/null 2>&1; then
+      SITE="$(.venv/bin/python -c 'import sysconfig; print(sysconfig.get_paths()["purelib"])')"
+      echo "$PWD" > "$SITE/poly_backend_src.pth"
+    fi
+    .venv/bin/python -c "import poly" >/dev/null 2>&1 \
+      || { echo "ERROR: the backend package still can't be imported. Try: cd backend && uv pip install -e ."; exit 1; }
+  fi
+  .venv/bin/python -m poly.cli init-db >/dev/null
   echo "Backend ready (.venv). Database seeded with your principles and default feeds."
 )
 

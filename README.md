@@ -73,10 +73,29 @@ ollama pull llama3.2:3b        # FAST classification, summaries, tagging
 
 Then click **Run ingest now** on Home (or `make ingest`) to pull today's news.
 
+### If something won't start
+
+```bash
+./scripts/doctor.sh      # checks node, ffmpeg, the Python venv, Ollama, and both servers
+```
+
+`dev.sh` writes `data/logs/backend.log`, `worker.log` and `frontend.log`, waits for the API, and
+tells you if it never came up. It also repairs the one install problem that bites in practice: an
+editable install that lands without its path link, which makes every `poly …` command fail with
+`ModuleNotFoundError: No module named 'poly'`. To fix that by hand:
+
+```bash
+cd backend && uv pip install -e .
+```
+
+"Cannot reach the Poly backend at http://localhost:8000" in the UI always means the API isn't
+running — the interface is fine, its engine isn't. Check `data/logs/backend.log`.
+
 ### Running the pieces separately
 
 ```bash
-make backend    # API with autoreload      (cd backend && .venv/bin/poly serve --reload)
+make backend    # API with autoreload
+make doctor     # check the local setup when something will not start
 make worker     # background jobs + daily schedule
 make frontend   # Next.js dev server
 make test       # backend test suite
