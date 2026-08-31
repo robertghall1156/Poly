@@ -13,6 +13,7 @@ import { Field, Input, Select, Textarea } from "@/components/ui/input";
 import { ListSkeleton } from "@/components/ui/skeleton";
 import { ErrorNotice } from "@/components/ui/notice";
 import { JobStatus } from "@/components/JobStatus";
+import { PicturePicker } from "@/components/studio/PicturePicker";
 
 const VISUAL_TYPES = ["text", "title", "question", "chart", "comparison", "counter", "timeline", "list", "quote", "icon"];
 const ANIMATIONS = ["fade", "slide_up", "pop", "typewriter", "none"];
@@ -330,7 +331,19 @@ export default function StudioEditorPage() {
         {/* Properties */}
         <div className="space-y-3">
           {scene ? (
-            <SceneProperties key={selected} scene={scene} onChange={(patch) => updateScene(selected, patch)} onRegenerate={(instruction) => regenerate(selected, instruction)} busy={act.busy} />
+            <SceneProperties
+              key={selected}
+              scene={scene}
+              onChange={(patch) => updateScene(selected, patch)}
+              onRegenerate={(instruction) => regenerate(selected, instruction)}
+              busy={act.busy}
+              projectId={projectId}
+              sceneIndex={selected}
+              onAttached={() => {
+                void project.reload();
+                setVersion((x) => x + 1);
+              }}
+            />
           ) : null}
           <details className="rounded-md border border-zinc-200 bg-white px-3 py-2">
             <summary className="cursor-pointer text-xs font-medium text-zinc-600 hover:text-zinc-900">Advanced</summary>
@@ -363,7 +376,7 @@ function CarouselPager({ projectId, count, version }: { projectId: string; count
   );
 }
 
-function SceneProperties({ scene, onChange, onRegenerate, busy }: { scene: StudioScene; onChange: (patch: Partial<StudioScene>) => void; onRegenerate: (instruction: string) => void; busy: boolean }) {
+function SceneProperties({ scene, onChange, onRegenerate, busy, projectId, sceneIndex, onAttached }: { scene: StudioScene; onChange: (patch: Partial<StudioScene>) => void; onRegenerate: (instruction: string) => void; busy: boolean; projectId: string; sceneIndex: number; onAttached: () => void }) {
   const [instruction, setInstruction] = React.useState("");
   const setVisual = (patch: Partial<SceneVisual>) => onChange({ visual: { ...scene.visual, ...patch } });
 
@@ -403,6 +416,7 @@ function SceneProperties({ scene, onChange, onRegenerate, busy }: { scene: Studi
           </Field>
         </div>
         <VisualFields type={scene.visual_type} visual={scene.visual ?? {}} onChange={setVisual} />
+        <PicturePicker projectId={projectId} sceneIndex={sceneIndex} visual={scene.visual ?? {}} onChange={setVisual} onAttached={onAttached} />
         <div className="grid grid-cols-2 gap-2">
           <Field label="Background">
             <Select value={scene.background || "auto"} onChange={(e) => onChange({ background: e.target.value, surface_locked: e.target.value !== "auto" })} className="w-full">

@@ -15,6 +15,7 @@ from PIL import Image as PILImage
 from poly.providers.image_search.wikimedia import WikimediaImageProvider, license_is_free
 from poly.services import imagery
 from poly.services.render_scene import compose, compose_text, is_full_bleed
+from poly.services.subjects import extract, for_scene, frame_for, lead, score_candidate, thing_in
 from poly.services.symbols import SYMBOLS, draw_symbol
 
 BRAND = {"primary": "#102A43", "accent": "#0F766E", "highlight": "#C89B3C", "background": "#F8F9FA", "muted": "#52667A", "logo_text": "POLY"}
@@ -235,3 +236,79 @@ def test_add_imagery_fills_a_deck_and_keeps_choices(db, wiki, monkeypatch):
     chosen = dict(scenes[1]["visual"])
     imagery.add_imagery(db, project)
     assert project.scenes[1]["visual"]["path"] == chosen["path"], "a picture already chosen must not be replaced"
+
+
+# ---------------------------------------------------------------------------
+# The pictures that actually shipped wrong: a deck about the president illustrated with a
+# historian who writes about him, and a line about Congress with a church in Toronto.
+# Both came from searching slide words instead of the story's subject.
+# ---------------------------------------------------------------------------
+COVERAGE = [
+    "Week in Politics: Trump renames Lake Ontario 'Lake America'; Fed chair signals hikes",
+    "Trump signs order renaming Lake Ontario to Lake America",
+    "Seneca Nation requests reversal on 'Lake America' executive order",
+    "National Park Service backs Trump's arch, despite its impact on key Washington sightlines",
+    "Kennedy Center Doubles Down on Fight to Reinstall Trump's Name",
+    "Canada claps back at Trump's efforts to rename Lake Ontario as 'Lake America'",
+    "Democrats plan bill to counter Trump order renaming Lake Ontario to Lake America",
+]
+
+
+def test_the_story_names_the_subject_not_the_slide():
+    cast = extract(COVERAGE)
+    names = [s.name for s in cast]
+    assert "Trump" in names and "Lake Ontario" in names
+    assert lead(cast).name == "Trump", "a deck about what a person did leads with the person"
+    # headline furniture and glued verbs are not subjects
+    assert not any(n.lower().startswith(("week", "watch", "politics")) for n in names)
+    assert "Kennedy Center Doubles Down" not in names
+
+
+def test_abstract_slides_search_for_the_person_not_the_words():
+    cast = extract(COVERAGE)
+    for headline in ("WHY DOES TRUMP'S FOCUS MATTER?", "THE PEOPLE'S PERSPECTIVE", "LEGACY VS. LASTING CHANGE"):
+        subject = for_scene(headline, cast)
+        assert subject is not None and subject.name == "Trump"
+        assert "focus" not in subject.query().lower() and "perspective" not in subject.query().lower()
+
+
+def test_pronouns_and_objects_resolve_to_the_real_thing():
+    cast = extract(COVERAGE)
+    for text, expected in [
+        ("His arch in Washington", "Trump arch"),
+        ("He puts his name on every building", "Trump building"),
+        ("He signed it alone", "Trump signing executive order"),
+    ]:
+        s = for_scene(text, cast)
+        assert s.query(frame_for(text), thing_in(text)) == expected, text
+    # an explicitly named place still wins over the lead
+    place = for_scene("Lake Ontario borders New York", cast)
+    assert place.name == "Lake Ontario"
+
+
+def test_off_subject_results_are_rejected_not_ranked_down():
+    cast = extract(COVERAGE)
+    trump = lead(cast)
+    assert score_candidate("Heather Cox Richardson", trump) == 0
+    assert score_candidate("St. Andrews Church, Toronto, Ontario", trump) == 0
+    assert score_candidate("Barack Obama at a podium", trump) == 0
+    # and the ones that do depict him pass, most specific first
+    portrait = score_candidate("Donald Trump official portrait", trump)
+    arch = score_candidate("Trump arch Washington DC proposal", trump, thing="arch")
+    assert portrait > 0 and arch > portrait
+
+    ontario = next(s for s in cast if s.name == "Lake Ontario")
+    assert score_candidate("Lake Ontario shoreline at dusk", ontario) > 0
+    assert score_candidate("St. Andrews Church, Toronto, Ontario", ontario) == 0, "sharing one word is not depicting"
+
+
+def test_search_drops_off_subject_candidates(db, wiki, monkeypatch):
+    """The gate runs inside search(), so nothing off-subject reaches a slide."""
+    monkeypatch.setattr(imagery, "all_providers", lambda: [wiki])
+    cast = extract(COVERAGE)
+    trump = lead(cast)
+    unfiltered = imagery.search(db, "trump", limit=10)
+    filtered = imagery.search(db, "trump", limit=10, subject=trump)
+    assert len(filtered) < len(unfiltered)
+    assert all("trump" in c["title"].lower() for c in filtered)
+    assert all(c["match_score"] > 0 for c in filtered)

@@ -55,6 +55,28 @@ a locally-generated editorial illustration → a symbolic mark. Two rules are no
    built from one. A labelled photoreal fake still travels as evidence once it leaves the app,
    so Poly does not make one.
 
+### Which picture
+
+The subject of a picture is taken from the **story**, not from the slide (`services/subjects.py`).
+A headline like "WHY DOES TRUMP'S FOCUS MATTER?" is an abstraction, and searching those words
+returns whatever a picture archive's full-text index associates with them — which is how a deck
+about a president got illustrated with a historian who writes about him, and a line about
+Congress got a church in Toronto.
+
+So `extract()` ranks the named people, places and buildings across the story's reporting by how
+much of the coverage carries them (document frequency, not repetition), `for_scene()` picks the
+one a given scene names — falling back to the deck's lead for abstract slides and resolving
+"his arch" to the lead person — and `thing_in()` adds the concrete object, so the search is
+"Trump arch", never "TRUMP FOCUS MATTER".
+
+Then `score_candidate()` **rejects** anything whose title does not contain every significant word
+of the subject's name. Sharing one word is not depicting: "St. Andrews Church, Toronto, Ontario"
+does not illustrate Lake Ontario. A wrong picture is worse than no picture, because the reader
+believes it — so a scene with no good candidate falls back to a symbol or stays as type.
+
+A picture Poly chose is marked `auto` and is replaced on the next run if the subject changed;
+a picture attached by hand in the editor is never touched.
+
 `services/symbols.py` draws the concept when no honest photograph exists: `rename` (old name
 struck through, new one stamped over it), `stamp`, `plaque`, `seal`, `scale`, `signature`.
 These need no network and carry no licensing risk, and for an act — a renaming, a signing, a

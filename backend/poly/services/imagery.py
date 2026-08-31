@@ -36,6 +36,7 @@ from ..providers.base import ImageCandidate, PrivacyViolation, ProviderError
 from ..providers.image.local_generative import LocalGenerativeImageProvider
 from ..providers.image_search import all_providers
 from .privacy import NetworkPolicy
+from .subjects import Subject, extract, for_scene, frame_for, score_candidate, thing_in
 from .symbols import SYMBOLS
 
 log = logging.getLogger(__name__)
@@ -52,8 +53,14 @@ _STOP = {"the", "a", "an", "and", "or", "but", "of", "to", "in", "on", "for", "w
 # ---------------------------------------------------------------------------
 # Search
 # ---------------------------------------------------------------------------
-def search(db: Session, query: str, *, limit: int = 12) -> list[dict[str, Any]]:
-    """Openly-licensed pictures for a query, best provenance first."""
+def search(db: Session, query: str, *, limit: int = 12, subject: Subject | None = None, thing: str = "") -> list[dict[str, Any]]:
+    """Openly-licensed pictures for a query, best first.
+
+    With a `subject`, results that do not actually depict it are dropped rather than ranked
+    down. A picture archive's full-text index associates a name with everything ever written
+    about it, so "Trump focus" returns a historian who writes about him. A wrong picture is
+    worse than none: the reader believes it.
+    """
     policy = NetworkPolicy.load(db)
     policy.check(locality="cloud", purpose="research", provider="image_search")
     out: list[dict[str, Any]] = []
@@ -68,6 +75,16 @@ def search(db: Session, query: str, *, limit: int = 12) -> list[dict[str, Any]]:
         except ProviderError as e:
             errors.append(str(e))
             log.warning("image search via %s failed: %s", provider.name, e)
+    if subject is not None:
+        scored = [(score_candidate(c["title"], subject, thing=thing), c) for c in out]
+        kept = [(s, c) for s, c in scored if s > 0]
+        kept.sort(key=lambda pair: -pair[0])
+        for s, c in kept:
+            c["match_score"] = s
+        rejected = len(out) - len(kept)
+        if rejected:
+            log.info("dropped %d picture(s) that do not depict %s", rejected, subject.name)
+        out = [c for _, c in kept]
     if not out and errors:
         raise ProviderError("; ".join(errors[:2]), provider="image_search")
     return out
@@ -199,6 +216,19 @@ _NAMED_AFTER = re.compile(r"named? (it |them )?after|his name on|puts? his name"
 _QUOTED = re.compile(r"[“\"']([^”\"']{3,60})[”\"']")
 
 
+def _subject_query(scene: dict[str, Any], cast: list[Subject] | None) -> tuple[str, Subject | None, str]:
+    """(search, subject, concrete object) for one scene — a real name, never slide words."""
+    headline = str(scene.get("on_screen_text") or "")
+    text = ". ".join(x for x in (headline, str(scene.get("subtext") or ""), str(scene.get("narration") or "")) if x)
+    # What the headline names outranks what the supporting line merely mentions.
+    named_in_headline = [s for s in (cast or []) if s.mentioned_in(headline)]
+    subject = for_scene(headline, named_in_headline) if named_in_headline else for_scene(text, cast or [])
+    if subject is None:
+        return "", None, ""
+    thing = thing_in(text)
+    return subject.query(frame_for(text), thing), subject, thing
+
+
 def keywords(text: str, limit: int = 6) -> str:
     words = re.findall(r"[A-Za-z][\w'-]+", text or "")
     keep = [w for w in words if w.lower() not in _STOP and len(w) > 2]
@@ -232,7 +262,19 @@ def infer_symbol(scene: dict[str, Any], context: str = "") -> dict[str, Any] | N
     return None
 
 
-def plan_scene_visual(scene: dict[str, Any], context: str = "") -> dict[str, Any]:
+def deck_subjects(db: Session, project: VideoProject) -> list[Subject]:
+    """Who and what the reporting behind this deck is about."""
+    item = project.content_item
+    texts: list[str] = [item.title or "", project.caption or ""]
+    story = item.story if getattr(item, "story_id", None) else None
+    if story is not None:
+        texts += [story.title or "", story.summary or "", story.why_it_matters or ""]
+        texts += [a.title or "" for a in getattr(story, "articles", [])[:20]]
+    texts += [f"{s.get('on_screen_text', '')} {s.get('subtext', '')}" for s in (project.scenes or [])]
+    return extract([x for x in texts if x])
+
+
+def plan_scene_visual(scene: dict[str, Any], context: str = "", cast: list[Subject] | None = None) -> dict[str, Any]:
     """What this scene wants to show, before anything is fetched.
 
     Returns {"want": photo|symbol|illustration|none, "query": ..., "symbol": {...}, "mood": ...}
@@ -248,13 +290,16 @@ def plan_scene_visual(scene: dict[str, Any], context: str = "") -> dict[str, Any
         if want == "symbol":
             spec = {k: visual[k] for k in ("symbol", "old", "new", "text", "center", "left", "right") if k in visual}
             plan["symbol"] = spec if spec.get("symbol") in SYMBOLS else (infer_symbol(scene, context) or {})
-        plan["query"] = str(visual.get("query") or "") or keywords(f"{scene.get('on_screen_text', '')} {scene.get('subtext', '')}")
+        plan["query"] = str(visual.get("query") or "") or _subject_query(scene, cast)[0]
+        plan["subject"], plan["thing"] = _subject_query(scene, cast)[1:]
         return plan
     symbol = infer_symbol(scene, context)
     if symbol:
         return {"want": "symbol", "symbol": symbol, "mood": ""}
-    query = str(visual.get("query") or "") or keywords(f"{scene.get('on_screen_text', '')} {scene.get('subtext', '')}")
-    return {"want": "photo" if query else "none", "query": query, "mood": ""}
+    query, subject, thing = _subject_query(scene, cast)
+    if visual.get("query"):
+        query = str(visual["query"])
+    return {"want": "photo" if query else "none", "query": query, "subject": subject, "thing": thing, "mood": ""}
 
 
 # ---------------------------------------------------------------------------
@@ -266,6 +311,9 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
     if not scenes:
         return project
     context = f"{project.content_item.title} {project.caption or ''}"
+    cast = deck_subjects(db, project)
+    if cast:
+        log.info("deck subjects: %s", ", ".join(f"{s.name}({s.weight})" for s in cast[:5]))
     policy = NetworkPolicy.load(db)
     can_search = allow_search and policy.allow_internet_research
     used: set[str] = set()
@@ -273,16 +321,26 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
     for i, scene in enumerate(scenes):
         if progress:
             progress(0.1 + 0.85 * i / len(scenes), f"Scene {i + 1}/{len(scenes)}")
-        plan = plan_scene_visual(scene, context)
+        plan = plan_scene_visual(scene, context, cast)
         want = plan.get("want")
+        visual = dict(scene.get("visual") or {})
+        # A picture Poly picked is provisional: if the subject it was picked for is no longer
+        # what this scene is about, it was a wrong guess and gets replaced. A picture the owner
+        # attached by hand is never touched.
+        if visual.get("path") and visual.get("auto") and visual.get("query") not in (None, plan.get("query")):
+            log.info("replacing an auto picture chosen for %r", visual.get("query"))
+            for key in ("path", "image_id", "credit", "source_page", "generated", "auto", "query"):
+                visual.pop(key, None)
+            scene["visual"] = visual
+            plan = plan_scene_visual(scene, context, cast)
+            want = plan.get("want")
         if want == "none":
             continue
-        visual = dict(scene.get("visual") or {})
 
         symbol_spec = plan.get("symbol") or {}
         if want == "symbol" and symbol_spec:
             if symbol_spec.get("symbol") in used_symbols:
-                plan = {**plan, "want": "photo", "query": plan.get("query") or keywords(f"{scene.get('on_screen_text', '')} {scene.get('subtext', '')}")}
+                plan = {**plan, "want": "photo", "query": plan.get("query") or _subject_query(scene, cast)[0]}
                 want = plan["want"]
             else:
                 used_symbols.add(str(symbol_spec.get("symbol")))
@@ -293,10 +351,10 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
 
         row = None
         if want in ("photo", "illustration") and plan.get("query"):
-            row = _from_library(db, plan["query"], exclude=used)
+            row = _from_library(db, plan["query"], exclude=used, subject=plan.get("subject"), thing=plan.get("thing", ""))
         if row is None and want == "photo" and can_search:
             try:
-                for cand in search(db, plan["query"], limit=6):
+                for cand in search(db, plan["query"], limit=6, subject=plan.get("subject"), thing=plan.get("thing", "")):
                     if cand["url"] in used:
                         continue
                     try:
@@ -320,6 +378,8 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
                 "credit": credit_line(row),
                 "source_page": (row.params or {}).get("source_page", ""),
                 "generated": bool(row.is_generated),
+                "auto": True,
+                "query": plan.get("query", ""),
                 "treatment": visual.get("treatment") or ("full_bleed" if i == 0 else "band"),
             }
             continue
@@ -339,16 +399,21 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
     return project
 
 
-def _from_library(db: Session, query: str, *, exclude: set[str]) -> Image | None:
-    """Reuse a picture already downloaded rather than fetching it twice."""
-    terms = [t for t in query.lower().split() if len(t) > 3][:3]
-    if not terms:
-        return None
+def _from_library(db: Session, query: str, *, exclude: set[str], subject: Subject | None = None, thing: str = "") -> Image | None:
+    """Reuse a picture already downloaded — but only one that clears the same relevance bar
+    as a fresh search, or the library becomes a cache of yesterday's wrong guesses."""
     rows = db.execute(select(Image).where(Image.label.in_(("photo", "illustration"))).order_by(Image.created_at.desc()).limit(200)).scalars().all()
+    best: tuple[int, Image] | None = None
     for row in rows:
         if row.path in exclude or not row.path:
             continue
-        hay = f"{row.title} {row.prompt}".lower()
-        if sum(t in hay for t in terms) >= max(1, len(terms) - 1):
+        hay = f"{row.title} {row.prompt}"
+        if subject is not None:
+            score = score_candidate(hay, subject, thing=thing)
+            if score > 0 and (best is None or score > best[0]):
+                best = (score, row)
+            continue
+        terms = [t for t in query.lower().split() if len(t) > 3][:3]
+        if terms and sum(t in hay.lower() for t in terms) >= max(1, len(terms) - 1):
             return row
-    return None
+    return best[1] if best else None
