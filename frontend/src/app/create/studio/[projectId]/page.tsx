@@ -377,6 +377,7 @@ export default function StudioEditorPage() {
               onChange={(patch) => updateScene(selected, patch)}
               onRegenerate={(instruction) => regenerate(selected, instruction)}
               busy={act.busy}
+              still={isGraphic}
               projectId={projectId}
               sceneIndex={selected}
               onAttached={() => {
@@ -416,7 +417,9 @@ function CarouselPager({ projectId, count, version }: { projectId: string; count
   );
 }
 
-function SceneProperties({ scene, onChange, onRegenerate, busy, projectId, sceneIndex, onAttached }: { scene: StudioScene; onChange: (patch: Partial<StudioScene>) => void; onRegenerate: (instruction: string) => void; busy: boolean; projectId: string; sceneIndex: number; onAttached: () => void }) {
+/** `still` = a single drawn image with no timeline: hide anything that only means something
+ * to a moving scene, so the panel shows the words and numbers and nothing else. */
+function SceneProperties({ scene, onChange, onRegenerate, busy, still, projectId, sceneIndex, onAttached }: { scene: StudioScene; onChange: (patch: Partial<StudioScene>) => void; onRegenerate: (instruction: string) => void; busy: boolean; still?: boolean; projectId: string; sceneIndex: number; onAttached: () => void }) {
   const [instruction, setInstruction] = React.useState("");
   const setVisual = (patch: Partial<SceneVisual>) => onChange({ visual: { ...scene.visual, ...patch } });
 
@@ -429,12 +432,16 @@ function SceneProperties({ scene, onChange, onRegenerate, busy, projectId, scene
         <Field label="Small text" hint="(optional)">
           <Input value={scene.subtext} onChange={(e) => onChange({ subtext: e.target.value })} />
         </Field>
-        <Field label="Narration" hint="what a voice would say">
-          <Textarea rows={2} value={scene.narration} onChange={(e) => onChange({ narration: e.target.value })} />
-        </Field>
-        <Field label={`Duration ${Number(scene.duration).toFixed(1)}s`}>
-          <input type="range" min={1.5} max={10} step={0.1} value={Number(scene.duration)} onChange={(e) => onChange({ duration: Number(e.target.value) })} className="w-full" />
-        </Field>
+        {!still ? (
+          <>
+            <Field label="Narration" hint="what a voice would say">
+              <Textarea rows={2} value={scene.narration} onChange={(e) => onChange({ narration: e.target.value })} />
+            </Field>
+            <Field label={`Duration ${Number(scene.duration).toFixed(1)}s`}>
+              <input type="range" min={1.5} max={10} step={0.1} value={Number(scene.duration)} onChange={(e) => onChange({ duration: Number(e.target.value) })} className="w-full" />
+            </Field>
+          </>
+        ) : null}
         <div className="grid grid-cols-2 gap-2">
           <Field label="Visual">
             <Select value={scene.visual_type} onChange={(e) => onChange({ visual_type: e.target.value })} className="w-full">
@@ -456,7 +463,7 @@ function SceneProperties({ scene, onChange, onRegenerate, busy, projectId, scene
           </Field>
         </div>
         <VisualFields type={scene.visual_type} visual={scene.visual ?? {}} onChange={setVisual} />
-        <PicturePicker projectId={projectId} sceneIndex={sceneIndex} visual={scene.visual ?? {}} onChange={setVisual} onAttached={onAttached} />
+        {!still ? <PicturePicker projectId={projectId} sceneIndex={sceneIndex} visual={scene.visual ?? {}} onChange={setVisual} onAttached={onAttached} /> : null}
         <div className="grid grid-cols-2 gap-2">
           <Field label="Background">
             <Select value={scene.background || "auto"} onChange={(e) => onChange({ background: e.target.value, surface_locked: e.target.value !== "auto" })} className="w-full">

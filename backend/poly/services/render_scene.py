@@ -400,13 +400,23 @@ def _abbrev(v: float) -> str:
     return f"{v:,.0f}" if abs(v) >= 10 else f"{v:,.1f}"
 
 
+def _stat_text(visual, value: float) -> str:
+    """The number as it is shown. "%" and "x" sit tight against it; a word does not —
+    "$15gain" reads as one broken token. Shared with counter_geometry, which has to place the
+    animated counter over exactly this string."""
+    suffix = str(visual.get("suffix", "") or "")
+    if len(suffix) > 1 and suffix[:1].isalpha():
+        suffix = f" {suffix}"
+    return f"{visual.get('prefix', '')}{_abbrev(value)}{suffix}"
+
+
 def _stat(draw, box, visual, ink: Ink, u: float, *, number: bool = True) -> None:
     x0, y0, x1, y1 = box
     try:
         value = float(visual.get("to", visual.get("value", 0)) or 0)
     except (TypeError, ValueError):
         value = 0.0
-    text = f"{visual.get('prefix', '')}{_abbrev(value)}{visual.get('suffix', '')}"
+    text = _stat_text(visual, value)
     f, lines = fit(SCRATCH, text, x1 - x0, (y1 - y0) * 0.72, weight=800, start=int(300 * u), minimum=int(90 * u), leading=0.98, max_lines=1)
     ln = lines[0]
     cy = (y0 + y1) / 2 - f.size * 0.62
@@ -595,7 +605,7 @@ def counter_geometry(scene: dict[str, Any], brand: dict[str, Any], *, width: int
         value = float(visual.get("to", visual.get("value", 0)) or 0)
     except (TypeError, ValueError):
         value = 0.0
-    text = f"{visual.get('prefix', '')}{_abbrev(value)}{visual.get('suffix', '')}"
+    text = _stat_text(visual, value)
     f, _ = fit(SCRATCH, text, x1 - x0, (y1 - y0) * 0.72, weight=800, start=int(300 * fr.unit), minimum=int(90 * fr.unit), leading=0.98, max_lines=1)
     return int((x0 + x1) / 2), int((y0 + y1) / 2 - f.size * 0.12), int(f.size)
 

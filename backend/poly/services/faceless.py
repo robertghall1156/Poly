@@ -634,7 +634,7 @@ GRAPHIC_SPECS: dict[str, dict[str, Any]] = {
     "number": {
         "label": "Number example",
         "visual_type": "counter",
-        "shape": '"visual": {"prefix": "$ or empty", "value": <the single number that lands>, "suffix": "per share, % or empty", "label": "≤10 words saying what the number is"}',
+        "shape": '{"prefix": "$ or empty", "value": <one number, digits only>, "suffix": "a unit only — % or /share — never a word like gain or profit; usually empty", "label": "≤10 words saying what the number is"}',
         "when": "one worked example where a single figure makes it click",
     },
 }
@@ -659,12 +659,22 @@ are not stupid and they are not your student — they are busy.
 
 THE PLAIN-ENGLISH RULE, which matters more than anything else here:
 Never use a compensation term as if it were already understood. You may introduce a term, but
-explain it in ordinary words in the same breath.
+the SAME SENTENCE has to say what it means in ordinary words.
   Wrong: "An option has intrinsic value when FMV exceeds the strike price."
+  Wrong: "Your option is worth something if the stock price exceeds the strike price."
+    (uses "strike price" without ever saying what one is)
   Right: "Your strike price is the price you're allowed to buy the stock for. If the stock is
   worth more than that later, your option may be worth something."
+
+These words in particular are meaningless to your reader on their own. If one appears, define
+it right there or replace it with plain words: strike price, vest, vesting, grant, equity,
+RSU, dilution, compa-ratio, midpoint, percentile, market median, differential, LTI, AIP.
+  "equity" -> "company stock"      "grant" -> "the shares you were promised"
+  "vest"   -> "become yours to keep"
 No jargon left standing. No "leverage", "vehicle", "philosophy", "architecture". Say "pay",
 not "compensation", wherever it reads naturally. Short sentences. Second person.
+Before you answer, reread every sentence and ask: would someone who has never heard this word
+understand it from what I wrote? If not, rewrite it.
 
 Concepts you may be asked about: {_COMP_TERMS}.
 
@@ -675,17 +685,26 @@ NUMBERS: use round, obviously-illustrative figures ($10, $25, 25%, 4 years) and 
 an invented figure as real market data. If you use a number, it is an example — the copy
 should read as one. Do not cite a source you were not given.
 
-Return JSON:
-{{"format": one of {list(GRAPHIC_SPECS)} — the one that fits this topic best,
-  "title": "the graphic's headline, ≤8 words, no ALL-CAPS",
-  "subtext": "one plain-English sentence under the title, ≤25 words, or empty",
-  "visual": the data for the chosen format (shape given below),
-  "hook": "a scroll-stopping first line for a post about this, ≤20 words, concrete and specific",
-  "caption": "≤200 chars, plain English, ends with a real question",
-  "hashtags": [3-5, no #]}}
+Return ONLY a JSON object with exactly these keys, and use these exact key names:
+  "format"   — one of: {", ".join(GRAPHIC_SPECS)}
+  "title"    — the headline, 8 words or fewer, sentence case
+  "subtext"  — one plain sentence under it, 25 words or fewer (may be "")
+  "visual"   — an object, shaped by the format you chose (see below)
+  "hook"     — a scroll-stopping first line for a post, 20 words or fewer
+  "caption"  — 200 characters or fewer, ending in a real question
+  "hashtags" — an array of 3-5 words, no # signs
 
-The visual shape for each format:
-""" + "\n".join(f'- {k}: use when {v["when"]}. {v["shape"]}' for k, v in GRAPHIC_SPECS.items())
+"visual" by format:
+""" + "\n".join(f'  {k} — for {v["when"]}:\n    {v["shape"]}' for k, v in GRAPHIC_SPECS.items())
+
+
+def _first(data: dict[str, Any], *keys: str) -> str:
+    """The first of these keys the model actually used, as a string."""
+    for k in keys:
+        v = as_str(data.get(k))
+        if v:
+            return v
+    return ""
 
 
 def generate_graphic(db: Session, project: VideoProject, *, router: Router | None = None, extra_instructions: str = "") -> VideoProject:
@@ -710,17 +729,25 @@ def generate_graphic(db: Session, project: VideoProject, *, router: Router | Non
     if fmt not in GRAPHIC_SPECS:
         fmt = "explainer"
     spec = GRAPHIC_SPECS[fmt]
-    visual = data.get("visual") if isinstance(data.get("visual"), dict) else {}
-    title = as_str(data.get("title"))[:120]
+
+    # A local model gets the content right and the key names approximately right. Refusing
+    # the whole draft over a synonym wastes a good explanation, so read the obvious aliases,
+    # accept a flattened visual, and fall back to the topic for the headline — a graphic
+    # titled with the question it answers is a reasonable graphic.
+    title = _first(data, "title", "heading", "headline")[:120] or (project.content_item.title or "").strip()[:120]
+    visual = data.get("visual") if isinstance(data.get("visual"), dict) else data.get("data") if isinstance(data.get("data"), dict) else {}
+    if not visual:
+        flat = {k: data[k] for k in ("items", "left", "right", "labels", "values", "unit", "points", "prefix", "value", "suffix", "label") if k in data}
+        visual = flat
     if not title:
-        raise ProviderError("model returned no title for the graphic", provider="faceless")
+        raise ProviderError("model returned nothing usable for the graphic", provider="faceless")
 
     scene = {
         "order": 0,
         "duration": 0,
         "narration": "",
         "on_screen_text": title,
-        "subtext": as_str(data.get("subtext"))[:280],
+        "subtext": _first(data, "subtext", "body", "subtitle", "explanation")[:280],
         # A shape the renderer cannot draw would silently render as bare type, so fall back to
         # the plain list rather than trusting the model's key names.
         "visual_type": spec["visual_type"] if visual else "text",
