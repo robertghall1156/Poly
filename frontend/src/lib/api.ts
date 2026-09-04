@@ -246,6 +246,8 @@ export const api = {
   renderProject: (id: string) => post<Job>(`/studio/projects/${id}/render`),
   addPictures: (id: string) => post<Job>(`/studio/projects/${id}/imagery`, {}),
   searchImages: (q: string, limit = 12) => get<{ results: ImageCandidate[] }>(`/studio/images/search${qs({ q, limit })}`),
+  suggestedImageQuery: (pid: string, idx: number) =>
+    get<{ query: string; source: string }>(`/studio/projects/${pid}/scenes/${idx}/suggested-query`),
   attachSceneImage: (id: string, idx: number, candidate: ImageCandidate, treatment = "band") =>
     post<StudioProject>(`/studio/projects/${id}/scenes/${idx}/image`, { scene_index: idx, candidate, treatment }),
   attachLibraryImage: (id: string, idx: number, imageId: string, treatment = "band") =>

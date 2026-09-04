@@ -58,21 +58,29 @@ export function PictureSidebar({
   React.useEffect(() => {
     const s = scenes[selected];
     if (!s) return;
-    const guess = String((s.visual as { query?: string } | undefined)?.query || "").trim();
-    if (!guess || guess === searchedFor.current) return;
-    searchedFor.current = guess;
-    setQ(guess);
     let cancelled = false;
     setBusy(true);
-    api
-      .searchImages(guess, 18)
-      .then((r) => !cancelled && setResults(r.results))
-      .catch((e) => !cancelled && setError(e instanceof Error ? e.message : String(e)))
-      .finally(() => !cancelled && setBusy(false));
+    // A slide that has never had a picture has no recorded query, which used to mean no
+    // search ran and the panel sat empty — the exact thing that made it look broken. Ask
+    // the server what this slide is about instead; it can work that out from the deck.
+    (async () => {
+      try {
+        const guess = (await api.suggestedImageQuery(projectId, selected)).query.trim();
+        if (cancelled || !guess || guess === searchedFor.current) return;
+        searchedFor.current = guess;
+        setQ(guess);
+        const r = await api.searchImages(guess, 18);
+        if (!cancelled) setResults(r.results);
+      } catch (e) {
+        if (!cancelled) setError(e instanceof Error ? e.message : String(e));
+      } finally {
+        if (!cancelled) setBusy(false);
+      }
+    })();
     return () => {
       cancelled = true;
     };
-  }, [selected, scenes]);
+  }, [selected, scenes, projectId]);
 
   const runSearch = async () => {
     if (!q.trim()) return;

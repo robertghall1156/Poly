@@ -220,6 +220,7 @@ def fact_check_task(job_id: str, content_item_id: str) -> None:
 def faceless_generate_task(job_id: str, project_id: str, extra_instructions: str = "") -> None:
     from ..models import VideoProject
     from ..services.faceless import generate_carousel_slides, generate_scenes
+    from ..services.imagery import add_imagery
 
     def run(db, job, progress):
         project = db.get(VideoProject, project_id)
@@ -230,6 +231,14 @@ def faceless_generate_task(job_id: str, project_id: str, extra_instructions: str
             generate_carousel_slides(db, project, extra_instructions=extra_instructions)
         else:
             generate_scenes(db, project, extra_instructions=extra_instructions)
+        # Pictures are part of a finished draft, not an extra step. A deck that arrives as
+        # seven text cards reads as broken, and the picture panel has nothing to work from
+        # until something has been picked — so find them now rather than waiting to be asked.
+        progress(0.6, "Finding pictures")
+        try:
+            add_imagery(db, project, progress=lambda f, m="": progress(0.6 + 0.4 * f, m))
+        except Exception as e:  # a picture problem must never lose the written draft
+            log.warning("imagery skipped for %s: %s", project_id, e)
         return {"project_id": project_id, "scenes": len(project.scenes or []), "content_item_id": project.content_item_id}
 
     _run_tracked(job_id, run)

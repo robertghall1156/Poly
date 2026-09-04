@@ -28,7 +28,20 @@ NOISE = {
     "october", "november", "december", "today", "tomorrow", "yesterday",
     "americans", "american", "people", "voters", "critics", "supporters", "sources", "officials",
     "president", "senator", "congressman", "governor", "mr", "ms", "mrs", "dr",
+    # "Source" heads the attribution line the writer appends to almost every slide. Left in,
+    # it reads as a capitalised name and searches an archive for the word — which is how two
+    # slides about campaign spending were illustrated with a Seychelles beach and a spring.
+    "source", "credit", "via", "photo", "image", "courtesy", "getty",
 }
+
+# The trailing attribution a slide carries ("… risking a Democratic edge. Source: Washington
+# Post"). It is furniture, not content: cut it before looking for what the slide is about.
+ATTRIBUTION = re.compile(r"\s*(?:source|credit|photo|via)\s*[::]\s*[^.]*\.?\s*$", re.I)
+
+
+def strip_attribution(text: str) -> str:
+    """Drop a trailing 'Source: X' so it cannot be mistaken for the slide's subject."""
+    return ATTRIBUTION.sub("", text or "").strip()
 # Bylines and outlets. They appear in almost every story and are never what it is about —
 # without this, "WHAT DID SOURCES SAY?" searches for a newspaper's head office.
 PUBLICATIONS = {

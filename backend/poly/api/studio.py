@@ -89,7 +89,10 @@ def create_faceless(body: FacelessIn, db: Session = Depends(get_db)) -> dict[str
             faceless.generate_scenes(db, project, extra_instructions=body.extra_instructions)
     except ProviderError as e:
         raise HTTPException(503, str(e)) from e
-    return {"project": _project(db, project)}
+    # Finding pictures means network calls, so it does not block the draft coming back — but
+    # it does start immediately, so the slides fill in on their own rather than on request.
+    job = enqueue(db, "faceless_imagery", {"project_id": project.id})
+    return {"project": _project(db, project), "job": d(job)}
 
 
 @router.get("/projects")
@@ -166,6 +169,32 @@ def add_pictures(pid: str, body: ImageryIn | None = None, db: Session = Depends(
     """Give the scenes pictures: licensed photos, drawn marks, or a local illustration."""
     get_or_404(db, VideoProject, pid)
     return d(enqueue(db, "faceless_imagery", {"project_id": pid}))
+
+
+@router.get("/projects/{pid}/scenes/{idx}/suggested-query")
+def suggested_query(pid: str, idx: int, db: Session = Depends(get_db)) -> dict[str, Any]:
+    """What this slide should be a picture *of*, before any picture has been chosen.
+
+    The picker used to seed its search from the query recorded on an already-chosen picture,
+    which meant a deck that had never run imagery had nothing to search for and showed an
+    empty panel. The subject is knowable from the deck itself, so compute it on demand.
+    """
+    p = get_or_404(db, VideoProject, pid)
+    scenes = p.scenes or []
+    if not 0 <= idx < len(scenes):
+        raise HTTPException(404, "scene not found")
+    scene = scenes[idx]
+    chosen = str((scene.get("visual") or {}).get("query") or "").strip()
+    if chosen:
+        return {"query": chosen, "source": "chosen"}
+    cast = imagery.deck_subjects(db, p)
+    guess, _subject, _thing = imagery._subject_query(scene, cast)
+    if guess:
+        return {"query": guess, "source": "subject"}
+    # No name anywhere in the slide — fall back to what the deck as a whole is about, so the
+    # panel still opens with something on-topic rather than nothing at all.
+    top = cast[0].name if cast else ""
+    return {"query": top or imagery.keywords(p.content_item.title or ""), "source": "deck"}
 
 
 @router.get("/images/search")

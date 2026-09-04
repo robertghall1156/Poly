@@ -33,14 +33,14 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session
 
 from ..config import get_settings
-from ..models import Article, Image, VideoProject
+from ..models import Article, Image, Story, VideoProject
 from ..providers.base import ImageCandidate, PrivacyViolation, ProviderError
 from ..providers.image.local_generative import LocalGenerativeImageProvider
 from ..providers.image_search import all_providers
 from ..providers.image_search.wikipedia import RateLimited
 from ..providers.image_search.wikipedia import rank as picture_rank
 from .privacy import NetworkPolicy
-from .subjects import Subject, extract, for_scene, frame_for, score_candidate, thing_in
+from .subjects import Subject, extract, for_scene, frame_for, score_candidate, strip_attribution, thing_in
 from .symbols import SYMBOLS
 
 log = logging.getLogger(__name__)
@@ -51,7 +51,7 @@ TREATMENTS = ["full_bleed", "band", "portrait"]
 # Bumped whenever picture selection itself gets better. A picture Poly chose under older,
 # worse rules is re-picked on the next run; one the owner pinned is never touched. Without
 # this, an improvement only reaches new decks and every existing slide keeps its bad guess.
-PICKER_VERSION = 5
+PICKER_VERSION = 6
 
 # Words that would push a generator toward a photograph. Stripped from every prompt.
 _PHOTOREAL = re.compile(r"\b(photo\w*|photograph\w*|realistic|hyper[- ]?real\w*|lifelike|4k|8k|dslr|render(ing)?|cgi|deep\s*fake|deepfake)\b", re.I)
@@ -140,13 +140,39 @@ def _as_dict(c: ImageCandidate) -> dict[str, Any]:
 # ---------------------------------------------------------------------------
 # Fetch
 # ---------------------------------------------------------------------------
+_ORIGINAL = re.compile(r"^(https://upload\.wikimedia\.org/wikipedia/(?:commons|en))/(\w)/(\w{2})/([^/?]+)$")
+_SIZED = re.compile(r"/(\d{3,5})px-")
+FETCH_WIDTH = 1600
+
+
+def cacheable(url: str) -> str:
+    """The same picture, asked for in a way the CDN will actually serve.
+
+    Two things were getting us rate-limited into empty slides. The API hands back the
+    *original* file URL, which is uncached and multi-megabyte — Wikimedia's own 429 body
+    asks callers to request sized thumbnails instead. And it appends utm_* tracking
+    parameters, which miss the cache and send every single request to the origin.
+
+    So: drop the query string, and rewrite an original path to a sized thumbnail. A slide is
+    1080px wide; 1600 is already generous.
+    """
+    url = (url or "").split("?", 1)[0]
+    m = _ORIGINAL.match(url)
+    if m:
+        host, a, ab, name = m.groups()
+        return f"{host}/thumb/{a}/{ab}/{name}/{FETCH_WIDTH}px-{name}"
+    if "/thumb/" in url:
+        return _SIZED.sub(f"/{FETCH_WIDTH}px-", url, count=1)
+    return url
+
+
 def fetch(db: Session, candidate: dict[str, Any], *, content_item_id: str | None = None) -> Image:
     """Download one licensed picture into the image library, provenance attached."""
     if not candidate.get("license"):
         raise ValueError("refusing to store a picture with no license")
     policy = NetworkPolicy.load(db)
     policy.check(locality="cloud", purpose="research", provider="image_search")
-    url = str(candidate["url"])
+    url = cacheable(str(candidate["url"]))
     with httpx.stream("GET", url, timeout=45, follow_redirects=True, headers={"User-Agent": "Poly/0.1 (personal research tool)"}) as r:
         r.raise_for_status()
         ctype = r.headers.get("content-type", "")
@@ -257,13 +283,27 @@ _QUOTED = re.compile(r"[“\"']([^”\"']{3,60})[”\"']")
 
 def _subject_query(scene: dict[str, Any], cast: list[Subject] | None) -> tuple[str, Subject | None, str]:
     """(search, subject, concrete object) for one scene — a real name, never slide words."""
-    headline = str(scene.get("on_screen_text") or "")
-    text = ". ".join(x for x in (headline, str(scene.get("subtext") or ""), str(scene.get("narration") or "")) if x)
+    headline = strip_attribution(str(scene.get("on_screen_text") or ""))
+    text = ". ".join(
+        x for x in (
+            headline,
+            strip_attribution(str(scene.get("subtext") or "")),
+            strip_attribution(str(scene.get("narration") or "")),
+        ) if x
+    )
     # What the headline names outranks what the supporting line merely mentions.
     named_in_headline = [s for s in (cast or []) if s.mentioned_in(headline)]
     subject = for_scene(headline, named_in_headline) if named_in_headline else for_scene(text, cast or [])
     if subject is None:
-        return "", None, ""
+        # A slide whose headline is pure rhetoric ("WHY THE CONCERN?") still says who it is
+        # about in its supporting line. Falling straight through to no-picture left a third
+        # of a deck bare even though the copy named the subject outright, so take the
+        # highest-ranked deck subject this slide actually mentions. Mentions only — never the
+        # deck lead applied blindly, which is how every slide ends up with the same face.
+        mentioned = [s for s in (cast or []) if s.mentioned_in(text)]
+        if not mentioned:
+            return "", None, ""
+        subject = mentioned[0]
     thing = thing_in(text)
     return subject.query(frame_for(text), thing), subject, thing
 
@@ -311,9 +351,15 @@ def deck_subjects(db: Session, project: VideoProject) -> list[Subject]:
     """
     item = project.content_item
     title_texts = [item.title or ""]
-    deck_texts = [project.caption or ""] + [f"{s.get('on_screen_text', '')}. {s.get('subtext', '')}" for s in (project.scenes or [])]
+    deck_texts = [project.caption or ""] + [
+        strip_attribution(f"{s.get('on_screen_text', '')}. {s.get('subtext', '')}") for s in (project.scenes or [])
+    ]
 
-    story = item.story if getattr(item, "story_id", None) else None
+    # ContentItem carries story_id but has no `story` relationship, so this must be a lookup.
+    # It used to be an attribute access, which raised AttributeError for every deck built
+    # from a news story — meaning imagery crashed and those decks got no pictures at all,
+    # while decks typed in by hand (no story_id) took the else branch and worked fine.
+    story = db.get(Story, item.story_id) if getattr(item, "story_id", None) else None
     if story is not None:
         coverage = [story.title or "", story.summary or "", story.why_it_matters or ""]
         coverage += [a.title or "" for a in getattr(story, "articles", [])[:20]]
@@ -466,9 +512,19 @@ def add_imagery(db: Session, project: VideoProject, *, allow_search: bool = True
             }
             continue
 
-        # nothing available — fall back to a mark rather than leaving the slide bare
-        symbol = plan.get("symbol") or infer_symbol(scene, context)
-        if symbol and symbol.get("symbol") not in used_symbols:
+        # Nothing available — fall back to a mark rather than leaving the slide bare.
+        # Some slides are about an abstraction ("THE ROLE OF MONEY", "REPUBLICAN STRATEGIES")
+        # and no archive holds a photograph of one; the searches correctly return nothing.
+        # Inferring a mark from the words often returns nothing either, and the slide was
+        # then left blank — which reads as a bug rather than as a design choice. So the last
+        # resort is unconditional: take any mark this deck has not used yet.
+        symbol = plan.get("symbol") or infer_symbol(scene, context) or {}
+        if symbol.get("symbol") in used_symbols:
+            symbol = {}
+        if not symbol:
+            spare = next((s for s in SYMBOLS if s not in used_symbols), "")
+            symbol = {"symbol": spare} if spare else {}
+        if symbol:
             used_symbols.add(str(symbol.get("symbol")))
             scene["visual_type"] = "symbol"
             scene["role"] = "symbol"
