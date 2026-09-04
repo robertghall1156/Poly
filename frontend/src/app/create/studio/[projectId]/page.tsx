@@ -3,7 +3,7 @@
 import * as React from "react";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
-import { ArrowDown, ArrowUp, ChevronDown, Image as ImageIcon, Plus, Trash2, Undo2 } from "lucide-react";
+import { ArrowDown, ArrowUp, ChevronDown, Download, Image as ImageIcon, Plus, Trash2, Undo2 } from "lucide-react";
 import { api } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
 import type { Job, SceneVisual, StudioProject, StudioScene } from "@/lib/types";
@@ -185,6 +185,9 @@ export default function StudioEditorPage() {
   const scene = scenes[selected] as StudioScene | undefined;
   const tts = formats.data?.tts;
   const isCarousel = p.kind === "carousel";
+  // One drawn image, not a deck and not a video: the duration, the voice, the picture search
+  // and the render-to-zip step are all meaningless for it, and a download is the only export.
+  const isGraphic = p.kind === "graphic";
 
   return (
     <div>
@@ -192,15 +195,17 @@ export default function StudioEditorPage() {
         <Link href="/create" className="hover:text-zinc-800">
           Create
         </Link>{" "}
-        / {isCarousel ? "carousel" : "faceless video"} editor
+        / {isGraphic ? "graphic" : isCarousel ? "carousel" : "faceless video"} editor
       </div>
 
       {/* Top bar */}
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-md border border-zinc-200 bg-white px-3 py-2">
         <Input value={title} onChange={(e) => setTitle(e.target.value)} onBlur={saveTitle} className="h-8 max-w-md flex-1 font-medium" aria-label="Title" />
-        <span className={cn("whitespace-nowrap font-mono text-xs", total > p.target_seconds * 1.25 ? "text-warn" : "text-zinc-500")}>
-          {fmtDuration(total)} / target {fmtDuration(p.target_seconds)}
-        </span>
+        {!isGraphic ? (
+          <span className={cn("whitespace-nowrap font-mono text-xs", total > p.target_seconds * 1.25 ? "text-warn" : "text-zinc-500")}>
+            {fmtDuration(total)} / target {fmtDuration(p.target_seconds)}
+          </span>
+        ) : null}
         <div className="relative">
           <Button size="sm" onClick={() => setVarOpen((o) => !o)}>
             Variations <ChevronDown className="h-3 w-3" />
@@ -219,7 +224,7 @@ export default function StudioEditorPage() {
             </div>
           ) : null}
         </div>
-        {!isCarousel ? (
+        {!isCarousel && !isGraphic ? (
           <div className="flex items-center overflow-hidden rounded-md border border-zinc-300">
             <button
               type="button"
@@ -246,12 +251,27 @@ export default function StudioEditorPage() {
         ) : (
           <span className="text-[11px] text-zinc-400">{saveAct.busy ? "Saving…" : "Saved"}</span>
         )}
-        <Button size="sm" variant="secondary" onClick={addPictures} loading={act.busy} disabled={!!imageryJob} data-testid="add-pictures">
-          <ImageIcon className="h-3.5 w-3.5" /> Add pictures
-        </Button>
-        <Button size="sm" variant="default" onClick={render} loading={act.busy} disabled={!!renderJob && p.render_status !== "done" && p.render_status !== "failed"} data-testid="render">
-          Render
-        </Button>
+        {!isGraphic ? (
+          <Button size="sm" variant="secondary" onClick={addPictures} loading={act.busy} disabled={!!imageryJob} data-testid="add-pictures">
+            <ImageIcon className="h-3.5 w-3.5" /> Add pictures
+          </Button>
+        ) : null}
+        {isGraphic ? (
+          // The scene preview endpoint already renders a full-size PNG; asking it for scale 1
+          // is the export. No second render path, no zip, no job to wait on.
+          <a
+            href={api.scenePreviewUrl(projectId, 0, 1, version)}
+            download={`${(title || "graphic").replace(/[^\w\s-]/g, "").trim().replace(/\s+/g, "-").toLowerCase()}.png`}
+            className="inline-flex h-8 items-center gap-1.5 rounded-md bg-brand px-3 text-xs font-medium text-white hover:opacity-90"
+            data-testid="download-graphic"
+          >
+            <Download className="h-3.5 w-3.5" /> Download PNG
+          </a>
+        ) : (
+          <Button size="sm" variant="default" onClick={render} loading={act.busy} disabled={!!renderJob && p.render_status !== "done" && p.render_status !== "failed"} data-testid="render">
+            Render
+          </Button>
+        )}
         <Button size="sm" variant="accent" onClick={() => router.push(`/create/review/${projectId}`)} data-testid="review">
           Review
         </Button>
@@ -303,9 +323,11 @@ export default function StudioEditorPage() {
               </div>
             </div>
           ))}
-          <Button size="sm" variant="secondary" className="w-full" onClick={addScene} loading={saveAct.busy}>
-            <Plus className="h-3.5 w-3.5" /> Add scene
-          </Button>
+          {!isGraphic ? (
+            <Button size="sm" variant="secondary" className="w-full" onClick={addScene} loading={saveAct.busy}>
+              <Plus className="h-3.5 w-3.5" /> Add scene
+            </Button>
+          ) : null}
         </div>
 
         {/* Preview */}
@@ -331,21 +353,23 @@ export default function StudioEditorPage() {
 
         {/* Properties */}
         <div className="space-y-3">
-          <div className="rounded-md border border-zinc-200 bg-white p-3">
-            <p className="kicker mb-2 text-zinc-500">Pictures</p>
-            <div>
-              <PictureSidebar
-                projectId={projectId}
-                scenes={scenes}
-                selected={selected}
-                onSelectScene={setSelected}
-                onChanged={() => {
-                  void project.reload();
-                  setVersion((x) => x + 1);
-                }}
-              />
+          {!isGraphic ? (
+            <div className="rounded-md border border-zinc-200 bg-white p-3">
+              <p className="kicker mb-2 text-zinc-500">Pictures</p>
+              <div>
+                <PictureSidebar
+                  projectId={projectId}
+                  scenes={scenes}
+                  selected={selected}
+                  onSelectScene={setSelected}
+                  onChanged={() => {
+                    void project.reload();
+                    setVersion((x) => x + 1);
+                  }}
+                />
+              </div>
             </div>
-          </div>
+          ) : null}
           {scene ? (
             <SceneProperties
               key={selected}

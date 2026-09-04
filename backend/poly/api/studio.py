@@ -34,7 +34,7 @@ class SourceIn(BaseModel):
 
 class FacelessIn(BaseModel):
     source: SourceIn
-    kind: str = "faceless_video"  # faceless_video | carousel
+    kind: str = "faceless_video"  # faceless_video | carousel | graphic
     format: str | None = None
     target_seconds: int | None = None
     platform: str | None = None
@@ -61,6 +61,7 @@ def formats(db: Session = Depends(get_db)) -> dict[str, Any]:
     voice_cfg = settings_service.get(db, "voice", {}) or {}
     return {
         "formats": [{"id": k, "label": v["label"], "default_seconds": v["default_seconds"]} for k, v in faceless.FORMAT_SPECS.items()],
+        "graphic_formats": [{"id": k, "label": v["label"], "when": v["when"]} for k, v in faceless.GRAPHIC_SPECS.items()],
         "lengths": [15, 30, 45, 60],
         "variations": list(faceless.VARIATIONS.keys()),
         "meme_templates": memes.MEME_TEMPLATES,
@@ -70,7 +71,10 @@ def formats(db: Session = Depends(get_db)) -> dict[str, Any]:
 
 @router.post("/faceless", status_code=201)
 def create_faceless(body: FacelessIn, db: Session = Depends(get_db)) -> dict[str, Any]:
-    if body.format and body.format not in FACELESS_FORMATS:
+    if body.kind == "graphic":
+        if body.format and body.format not in faceless.GRAPHIC_SPECS:
+            raise HTTPException(400, f"unknown graphic format {body.format}")
+    elif body.format and body.format not in FACELESS_FORMATS:
         raise HTTPException(400, f"unknown format {body.format}")
     try:
         project = faceless.create_project(
@@ -83,12 +87,16 @@ def create_faceless(body: FacelessIn, db: Session = Depends(get_db)) -> dict[str
         job = enqueue(db, "faceless_generate", {"project_id": project.id, "extra_instructions": body.extra_instructions})
         return {"project": _project(db, project), "job": d(job)}
     try:
-        if project.kind == "carousel":
+        if project.kind == "graphic":
+            faceless.generate_graphic(db, project, extra_instructions=body.extra_instructions)
+        elif project.kind == "carousel":
             faceless.generate_carousel_slides(db, project, extra_instructions=body.extra_instructions)
         else:
             faceless.generate_scenes(db, project, extra_instructions=body.extra_instructions)
     except ProviderError as e:
         raise HTTPException(503, str(e)) from e
+    if project.kind == "graphic":
+        return {"project": _project(db, project)}  # its visual is drawn, not searched for
     # Finding pictures means network calls, so it does not block the draft coming back — but
     # it does start immediately, so the slides fill in on their own rather than on request.
     job = enqueue(db, "faceless_imagery", {"project_id": project.id})

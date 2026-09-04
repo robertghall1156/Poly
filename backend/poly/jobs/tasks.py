@@ -219,14 +219,19 @@ def fact_check_task(job_id: str, content_item_id: str) -> None:
 @huey.task()
 def faceless_generate_task(job_id: str, project_id: str, extra_instructions: str = "") -> None:
     from ..models import VideoProject
-    from ..services.faceless import generate_carousel_slides, generate_scenes
+    from ..services.faceless import generate_carousel_slides, generate_graphic, generate_scenes
     from ..services.imagery import add_imagery
 
     def run(db, job, progress):
         project = db.get(VideoProject, project_id)
         if project is None:
             raise ValueError("project not found")
-        progress(0.1, "Writing scenes")
+        progress(0.1, "Explaining it simply" if project.kind == "graphic" else "Writing scenes")
+        if project.kind == "graphic":
+            generate_graphic(db, project, extra_instructions=extra_instructions)
+            # A graphic's whole point is a drawn diagram with exact numbers. Sending it
+            # through picture search would put a stock photograph behind the figures.
+            return {"project_id": project_id, "scenes": 1, "format": project.format, "content_item_id": project.content_item_id}
         if project.kind == "carousel":
             generate_carousel_slides(db, project, extra_instructions=extra_instructions)
         else:

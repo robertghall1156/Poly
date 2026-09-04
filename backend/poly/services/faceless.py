@@ -370,13 +370,20 @@ def create_project(
     title: str | None = None,
 ) -> VideoProject:
     source_kind, material, links = resolve_source(db, source)
-    fmt = fmt or DEFAULT_FORMAT_BY_SOURCE.get(source_kind, "question")
-    if fmt not in FACELESS_FORMATS:
-        raise ValueError(f"unknown format {fmt}")
-    spec = FORMAT_SPECS[fmt]
-    seconds = int(target_seconds or spec["default_seconds"])
+    if kind == "graphic":
+        # A graphic has no length and no scene pattern; the format is a data shape, and the
+        # model picks it when the user has not. Empty is a valid, meaningful value here.
+        fmt = fmt if fmt in GRAPHIC_SPECS else ""
+        label = GRAPHIC_SPECS[fmt]["label"] if fmt else "Graphic"
+        seconds = 0
+    else:
+        fmt = fmt or DEFAULT_FORMAT_BY_SOURCE.get(source_kind, "question")
+        if fmt not in FACELESS_FORMATS:
+            raise ValueError(f"unknown format {fmt}")
+        label = FORMAT_SPECS[fmt]["label"]
+        seconds = int(target_seconds or FORMAT_SPECS[fmt]["default_seconds"])
     item = ContentItem(
-        title=(title or f"{spec['label']} draft")[:400],
+        title=(title or f"{label} draft")[:400],
         format="youtube_short" if kind == "faceless_video" else "infographic",
         status="SCRIPTING",
         platform=platform or ("youtube_short" if kind == "faceless_video" else "instagram_post"),
@@ -592,6 +599,162 @@ Return JSON: {{"title", "caption" (≤200 chars), "hashtags" (3-6, no #),
 "layout": "title" | "body" | "question"}}]}}
 6-8 slides. Slide 1 hooks with the question. Last slide asks the reader a real question.
 Never fabricate numbers or quotes; carry sources for every factual claim."""
+
+
+# ---------------------------------------------------------------------------
+# Graphic: one image that explains one compensation idea
+# ---------------------------------------------------------------------------
+# Five formats, each already drawn by render_scene. A format is a prompt and a data shape,
+# never a new drawing routine — that is the whole reason there are five and not fifty.
+GRAPHIC_SPECS: dict[str, dict[str, Any]] = {
+    "explainer": {
+        "label": "Simple explainer",
+        "visual_type": "list",
+        "shape": '"visual": {"items": ["1-3 short plain-English points, ≤12 words each"]}',
+        "when": "a term or idea that just needs defining in plain words",
+    },
+    "comparison": {
+        "label": "Comparison",
+        "visual_type": "comparison",
+        "shape": '"visual": {"left": {"label": "≤4 words", "value": "short value or figure"}, "right": {"label": "≤4 words", "value": "short value or figure"}}',
+        "when": "two things people mix up (options vs RSUs, salary vs total comp)",
+    },
+    "breakdown": {
+        "label": "Breakdown",
+        "visual_type": "chart",
+        "shape": '"visual": {"title": "≤5 words", "labels": ["2-5 parts"], "values": [numbers, same order], "unit": "% or $ or empty"}',
+        "when": "one thing made of parts (how a CEO gets paid, what total comp includes)",
+    },
+    "timeline": {
+        "label": "Timeline",
+        "visual_type": "timeline",
+        "shape": '"visual": {"points": [{"label": "≤4 words e.g. Year 1", "text": "≤14 words"}]}  (3-5 points)',
+        "when": "something that happens in steps over time (vesting, a review cycle)",
+    },
+    "number": {
+        "label": "Number example",
+        "visual_type": "counter",
+        "shape": '"visual": {"prefix": "$ or empty", "value": <the single number that lands>, "suffix": "per share, % or empty", "label": "≤10 words saying what the number is"}',
+        "when": "one worked example where a single figure makes it click",
+    },
+}
+
+# Prompt guidance, deliberately NOT a database. These are the words a normal employee runs
+# into; the model already knows what they mean. Listing them keeps it on the subject and
+# stops it drifting into HR-consultant register.
+_COMP_TERMS = (
+    "salary, salary range, minimum/midpoint/maximum, market median, percentiles, compa-ratio, "
+    "raise, promotion, bonus, target bonus, equity, stock option, strike price, RSU, vesting, "
+    "cliff, dilution, pay compression, geographic differential, executive compensation, "
+    "annual incentive, long-term incentive, performance shares, peer group, CEO pay ratio"
+)
+
+SYSTEM_GRAPHIC = f"""{VOICE}
+{INTEGRITY}
+You make ONE image that explains ONE compensation idea to a normal employee scrolling a phone.
+
+WHO IS READING: someone with a job who has never worked in HR or compensation. They may have
+just been handed an offer letter or an equity grant and do not know what the words mean. They
+are not stupid and they are not your student — they are busy.
+
+THE PLAIN-ENGLISH RULE, which matters more than anything else here:
+Never use a compensation term as if it were already understood. You may introduce a term, but
+explain it in ordinary words in the same breath.
+  Wrong: "An option has intrinsic value when FMV exceeds the strike price."
+  Right: "Your strike price is the price you're allowed to buy the stock for. If the stock is
+  worth more than that later, your option may be worth something."
+No jargon left standing. No "leverage", "vehicle", "philosophy", "architecture". Say "pay",
+not "compensation", wherever it reads naturally. Short sentences. Second person.
+
+Concepts you may be asked about: {_COMP_TERMS}.
+
+ONE IDEA PER IMAGE. If the topic has three parts, pick the part that matters most and cut the
+rest. Someone must get it in about three seconds.
+
+NUMBERS: use round, obviously-illustrative figures ($10, $25, 25%, 4 years) and never present
+an invented figure as real market data. If you use a number, it is an example — the copy
+should read as one. Do not cite a source you were not given.
+
+Return JSON:
+{{"format": one of {list(GRAPHIC_SPECS)} — the one that fits this topic best,
+  "title": "the graphic's headline, ≤8 words, no ALL-CAPS",
+  "subtext": "one plain-English sentence under the title, ≤25 words, or empty",
+  "visual": the data for the chosen format (shape given below),
+  "hook": "a scroll-stopping first line for a post about this, ≤20 words, concrete and specific",
+  "caption": "≤200 chars, plain English, ends with a real question",
+  "hashtags": [3-5, no #]}}
+
+The visual shape for each format:
+""" + "\n".join(f'- {k}: use when {v["when"]}. {v["shape"]}' for k, v in GRAPHIC_SPECS.items())
+
+
+def generate_graphic(db: Session, project: VideoProject, *, router: Router | None = None, extra_instructions: str = "") -> VideoProject:
+    """Turn a topic into one editable scene, using a visual the renderer already draws.
+
+    The model chooses the format unless the project already names one — "recommend a type" is
+    a field in the response, not a second model call or an agent.
+    """
+    router = router or Router(db)
+    _, material, _ = resolve_source(db, (project.generation_meta or {}).get("source", {}))
+    asked = project.format if project.format in GRAPHIC_SPECS else ""
+    user = (
+        (f"USE THIS FORMAT: {asked}\n" if asked else "CHOOSE THE FORMAT THAT FITS BEST.\n")
+        + (f"DIRECTION: {extra_instructions}\n" if extra_instructions else "")
+        + f"\nTOPIC:\n{material}"
+    )
+    data, res = chat_json(router, "WRITING", "graphic", SYSTEM_GRAPHIC, user, temperature=0.5, max_tokens=1200)
+
+    fmt = as_str(data.get("format")).lower().strip()
+    if asked:
+        fmt = asked
+    if fmt not in GRAPHIC_SPECS:
+        fmt = "explainer"
+    spec = GRAPHIC_SPECS[fmt]
+    visual = data.get("visual") if isinstance(data.get("visual"), dict) else {}
+    title = as_str(data.get("title"))[:120]
+    if not title:
+        raise ProviderError("model returned no title for the graphic", provider="faceless")
+
+    scene = {
+        "order": 0,
+        "duration": 0,
+        "narration": "",
+        "on_screen_text": title,
+        "subtext": as_str(data.get("subtext"))[:280],
+        # A shape the renderer cannot draw would silently render as bare type, so fall back to
+        # the plain list rather than trusting the model's key names.
+        "visual_type": spec["visual_type"] if visual else "text",
+        "visual": visual,
+        "animation": "none",
+        "transition": "cut",
+        "background": "background",
+        "surface_locked": False,
+        "role": "",
+        "kicker": "",
+        "emphasis": [],
+        "source": "",
+    }
+
+    project.previous_scenes = project.scenes or []
+    project.scenes = [scene]
+    project.format = fmt
+    project.caption = as_str(data.get("caption"))[:500]
+    project.hashtags = [as_str(h).lstrip("#") for h in as_list(data.get("hashtags"))][:8]
+    meta = dict(project.generation_meta or {})
+    meta["model"] = res.model
+    meta["hook"] = as_str(data.get("hook"))[:280]
+    project.generation_meta = meta
+    project.render_status = "none"
+
+    item = project.content_item
+    item.title = title[:400]
+    # The hook lives on the content item, so the post, the calendar and the social bundle all
+    # see it without a second workflow: the graphic and the script reinforce each other.
+    hook = as_str(data.get("hook"))
+    item.script = f"{hook}\n\n{title}\n{scene['subtext']}".strip()
+    db.commit()
+    embed_entity(db, "content_item", item, router)
+    return project
 
 
 def generate_carousel_slides(db: Session, project: VideoProject, *, router: Router | None = None, extra_instructions: str = "") -> VideoProject:

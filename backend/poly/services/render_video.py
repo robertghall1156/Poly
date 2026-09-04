@@ -38,7 +38,7 @@ FPS = 30
 
 def geometry(project: VideoProject | None) -> tuple[int, int]:
     """A carousel slide is 4:5, a short is 9:16 — previews have to match what gets exported."""
-    if project is not None and project.kind == "carousel":
+    if project is not None and project.kind in ("carousel", "graphic"):
         return CAROUSEL_W, CAROUSEL_H
     return W, H
 

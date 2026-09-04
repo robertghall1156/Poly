@@ -876,8 +876,14 @@ export interface TtsStatus {
   detail?: string;
   [k: string]: unknown;
 }
+export interface GraphicFormatDef {
+  id: string;
+  label: string;
+  when: string;
+}
 export interface StudioFormats {
   formats: StudioFormatDef[];
+  graphic_formats: GraphicFormatDef[];
   lengths: number[];
   variations: string[];
   meme_templates: string[];

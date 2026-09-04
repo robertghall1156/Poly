@@ -712,6 +712,9 @@ FACELESS_FORMATS = [
     "question", "text_explainer", "news_explainer", "did_you_know", "system_explainer",
     "data_story", "argument", "my_take", "custom",
 ]
+# One-image explainers. Deliberately five: each maps onto a visual the renderer already
+# draws, so a new format is a prompt, never a new drawing routine.
+GRAPHIC_FORMATS = ["explainer", "comparison", "breakdown", "timeline", "number"]
 SCENE_VISUAL_TYPES = ["text", "title", "question", "chart", "comparison", "counter", "timeline", "list", "image", "quote", "icon"]
 
 
@@ -726,7 +729,7 @@ class VideoProject(TimestampMixin, Base):
 
     id: Mapped[str] = mapped_column(String(32), primary_key=True, default=new_id)
     content_item_id: Mapped[str] = mapped_column(ForeignKey("content_items.id", ondelete="CASCADE"), index=True)
-    kind: Mapped[str] = mapped_column(String(20), default="faceless_video")  # faceless_video | carousel
+    kind: Mapped[str] = mapped_column(String(20), default="faceless_video")  # faceless_video | carousel | graphic
     format: Mapped[str] = mapped_column(String(30), default="question")
     target_seconds: Mapped[int] = mapped_column(Integer, default=30)
     platform: Mapped[str] = mapped_column(String(30), default="youtube_short")

@@ -2,7 +2,7 @@
 
 import * as React from "react";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Clapperboard, FileText, Images, Laugh, MessageSquareText, Mic, MonitorPlay, Tv } from "lucide-react";
+import { Clapperboard, FileText, Images, Laugh, MessageSquareText, Mic, MonitorPlay, Shapes, Tv } from "lucide-react";
 import { api, API_BASE } from "@/lib/api";
 import { useAction, useApi } from "@/lib/hooks";
 import type { Job, MemeConcept, MemeRenderResult } from "@/lib/types";
@@ -15,9 +15,10 @@ import { PageHeader } from "@/components/ui/section";
 import { JobStatus } from "@/components/JobStatus";
 import { SourcePicker, sourceReady, toStudioSource, type SourceSelection, type SourceType } from "@/components/create/SourcePicker";
 
-type Flow = "short" | "faceless" | "meme" | "carousel" | "post" | "youtube" | "podcast" | "article";
+type Flow = "short" | "faceless" | "meme" | "carousel" | "graphic" | "post" | "youtube" | "podcast" | "article";
 
 const TILES: { id: Flow; label: string; hint: string; icon: typeof FileText }[] = [
+  { id: "graphic", label: "Graphic", hint: "One image that explains one idea", icon: Shapes },
   { id: "short", label: "Short", hint: "15–60s vertical video, ~3 clicks to a draft", icon: MonitorPlay },
   { id: "faceless", label: "Faceless Video", hint: "Animated text video — no camera needed", icon: Clapperboard },
   { id: "meme", label: "Meme", hint: "Three concepts, pick one, done", icon: Laugh },
@@ -99,9 +100,123 @@ function CreateInner() {
       {!validFlow ? <Notice>Choose a format above to start. You can begin from a story, a position, a belief, research, or a custom idea.</Notice> : null}
       {validFlow === "short" || validFlow === "faceless" ? <FacelessFlow key={validFlow} kind="faceless_video" short={validFlow === "short"} source={source} onSource={setSource} /> : null}
       {validFlow === "carousel" ? <FacelessFlow key="carousel" kind="carousel" source={source} onSource={setSource} /> : null}
+      {validFlow === "graphic" ? <GraphicFlow key="graphic" /> : null}
       {validFlow === "meme" ? <MemeFlow source={source} onSource={setSource} /> : null}
       {validFlow === "post" || validFlow === "youtube" || validFlow === "podcast" || validFlow === "article" ? (
         <SimpleFlow key={validFlow} flow={validFlow} source={source} onSource={setSource} />
+      ) : null}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Graphic — one image explaining one idea
+// ---------------------------------------------------------------------------
+const TOPIC_EXAMPLES = [
+  "What is a stock option?",
+  "What does vesting mean?",
+  "How are CEOs paid?",
+  "What is a salary range?",
+  "What is an RSU?",
+  "What is pay compression?",
+  "Why can a new hire make more than you?",
+  "How does a bonus work?",
+];
+
+/**
+ * Deliberately one box and one button.
+ *
+ * The topic is the whole input, and the shape of the graphic is a decision Poly can make
+ * better than a menu can — a question about vesting wants a timeline whether or not the
+ * person knew to ask for one. The picker is there for when the guess is wrong.
+ */
+function GraphicFlow() {
+  const router = useRouter();
+  const formats = useApi(() => api.studioFormats(), []);
+  const [topic, setTopic] = React.useState("");
+  const [fmt, setFmt] = React.useState("");
+  const [jobId, setJobId] = React.useState<string | null>(null);
+  const [projectId, setProjectId] = React.useState<string | null>(null);
+  const act = useAction();
+
+  const generate = async () => {
+    if (!topic.trim()) return;
+    const res = await act.run(() =>
+      api.createFaceless({
+        source: { idea: topic.trim() },
+        kind: "graphic",
+        format: fmt || undefined,
+        title: topic.trim(),
+        background: true,
+      }),
+    );
+    if (res) {
+      setProjectId(res.project.id);
+      if (res.job) setJobId(res.job.id);
+      else router.push(`/create/studio/${res.project.id}`);
+    }
+  };
+
+  return (
+    <div className="rounded-lg border border-zinc-200 bg-white p-4">
+      <p className="mb-1.5 text-xs font-semibold uppercase tracking-wider text-zinc-500">1 · What do you want to explain?</p>
+      <Textarea
+        value={topic}
+        onChange={(e) => setTopic(e.target.value)}
+        onKeyDown={(e) => {
+          if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) void generate();
+        }}
+        placeholder="What is a stock option?"
+        rows={2}
+        aria-label="Topic"
+      />
+      <div className="mt-2 flex flex-wrap gap-1.5">
+        {TOPIC_EXAMPLES.map((t) => (
+          <button
+            key={t}
+            type="button"
+            onClick={() => setTopic(t)}
+            className="border border-divider px-2.5 py-1 text-[11px] text-zinc-600 transition-colors hover:bg-ink/5"
+          >
+            {t}
+          </button>
+        ))}
+      </div>
+
+      <p className="mb-1.5 mt-4 text-xs font-semibold uppercase tracking-wider text-zinc-500">2 · Shape</p>
+      <div className="flex flex-wrap gap-1.5">
+        {[{ id: "", label: "Let Poly choose", when: "picks the shape that fits the topic" }, ...(formats.data?.graphic_formats ?? [])].map((f) => (
+          <button
+            key={f.id || "auto"}
+            type="button"
+            onClick={() => setFmt(f.id)}
+            title={f.when}
+            className={cn(
+              "border px-3 py-1 text-xs font-medium transition-colors",
+              fmt === f.id ? "border-accent bg-accent-soft text-accent-strong" : "border-divider bg-transparent text-zinc-700 hover:bg-ink/5",
+            )}
+          >
+            {f.label}
+          </button>
+        ))}
+      </div>
+
+      <div className="mt-4 flex items-center gap-3">
+        <Button variant="default" size="lg" onClick={generate} loading={act.busy} disabled={!topic.trim() || !!jobId} data-testid="generate-graphic">
+          Make the graphic
+        </Button>
+        <span className="text-xs text-zinc-500">Explained in plain English — every word and number stays editable.</span>
+      </div>
+      <ErrorNotice error={act.error} className="mt-3" />
+      {jobId ? (
+        <JobStatus
+          jobId={jobId}
+          label="Explaining it simply"
+          className="mt-3"
+          onDone={(job: Job) => {
+            if (job.status === "succeeded" && projectId) router.push(`/create/studio/${projectId}`);
+          }}
+        />
       ) : null}
     </div>
   );
